@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{% if action == 'edit' %}编辑{% else %}新增{% endif %}品类</h2>
+
+<form method="post">
+  {% csrf_token %}
+  {% if category %}
+    <input type="text" name="name" value="{{ category.name }}" placeholder="名称" required>
+    <input type="text" name="code" value="{{ category.code }}" placeholder="编码">
+    <textarea name="description">{{ category.description }}</textarea>
+    <select name="parent">
+      <option value="">— 无上级 —</option>
+      {% for p in parents %}
+        <option value="{{ p.pk }}" {% if category.parent_id == p.pk %}selected{% endif %}>
+          {{ p.full_path }}
+        </option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <input type="text" name="name" placeholder="名称" required>
+    <input type="text" name="code" placeholder="编码">
+    <textarea name="description" placeholder="描述"></textarea>
+    <select name="parent">
+      <option value="">— 无上级 —</option>
+      {% for p in parents %}
+        <option value="{{ p.pk }}">{{ p.full_path }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  <button type="submit">保存</button>
+  <a href="{% url 'components:category_list' %}">取消</a>
+</form>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}品类管理 · ECIMS{% endblock %}
+
+{% block content %}
+
+<!-- 页头 -->
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold">
+            <i class="bi bi-diagram-3 text-primary me-2"></i>品类管理
+        </h1>
+        <p class="text-muted small mb-0">管理电子元件的分类层级，支持多级嵌套</p>
+    </div>
+    <a href="{% url 'components:category_create' %}" class="btn btn-primary shadow-sm">
+        <i class="bi bi-plus-lg me-1"></i> 新增品类
+    </a>
+</div>
+
+<!-- 数据卡片 -->
+<div class="card border-0 shadow-sm">
+    <!-- 卡片头部：搜索 + 统计 -->
+    <div class="card-header bg-white border-bottom py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <form method="get" class="position-relative">
+                    <i class="bi bi-search position-absolute text-muted"
+                       style="left: 12px; top: 50%; transform: translateY(-50%);"></i>
+                    <input type="text" name="q" class="form-control ps-5"
+                           placeholder="搜索名称或编码..."
+                           value="{{ request.GET.q|default:'' }}">
+                </form>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <span class="text-muted small">
+                    共 <strong class="text-dark">{{ page_obj.paginator.count|default:categories|length }}</strong> 条
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 表格 -->
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr class="table-light">
+                    <th class="ps-4" style="width: 120px;">编码</th>
+                    <th>名称</th>
+                    <th style="width: 200px;">上级品类</th>
+                    <th style="width: 160px;">创建时间</th>
+                    <th class="text-end pe-4" style="width: 140px;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in categories %}
+                <tr>
+                    <td class="ps-4">
+                        {% if c.code %}
+                            <code class="text-primary bg-primary-subtle px-2 py-1 rounded">
+                                {{ c.code }}
+                            </code>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'components:category_detail' c.pk %}"
+                           class="text-decoration-none fw-medium text-dark">
+                            {{ c.name }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if c.parent %}
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-arrow-return-right me-1"></i>{{ c.parent.name }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">顶级品类</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small">
+                        {{ c.created_at|date:"Y-m-d H:i" }}
+                    </td>
+                    <td class="text-end pe-4">
+                        <a href="{% url 'components:category_edit' c.pk %}"
+                           class="btn btn-sm btn-light border" title="编辑">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'components:category_delete' c.pk %}"
+                           class="btn btn-sm btn-light border text-danger" title="停用">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
+                            <p class="mb-2">还没有品类数据</p>
+                            <a href="{% url 'components:category_create' %}"
+                               class="btn btn-sm btn-primary">
+                                <i class="bi bi-plus-lg"></i> 创建第一个品类
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if is_paginated %}
+    <div class="card-footer bg-white border-top py-3">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                    </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">
+                        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
