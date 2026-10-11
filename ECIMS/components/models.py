@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from decimal import Decimal
+from django.urls import reverse
 
 User = get_user_model()
 
@@ -45,6 +46,10 @@ class Category(models.Model):
             names.append(node.name)
             node = node.parent
         return "/".join(reversed(names))
+
+    def get_absolute_url(self):
+        """返回该品类详情页的 URL，供模板 / admin / redirect 使用"""
+        return reverse("components:category_detail", args=[self.pk])    
 
 
 class Component(models.Model):

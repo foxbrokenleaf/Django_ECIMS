@@ -19,6 +19,10 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path("components/", include("components.urls")),
     path("admin/", admin.site.urls),
+    # 应用命名空间：components/urls.py 里的 app_name = "components"
+    # 实例命名空间：这里的 namespace="components"    
+    path("components/", include(("components.urls", "components"), namespace="components")),
+    # 测试版实例
+    path("demo/components/",include(("components.urls", "components"), namespace="test"),),
 ]

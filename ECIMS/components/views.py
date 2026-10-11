@@ -6,6 +6,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Category
 
+from django.urls import reverse
+from django.http import HttpResponse
+
 
 @login_required
 def category_list(request):
@@ -79,3 +82,13 @@ def category_delete(request, pk):
         messages.success(request, "已停用")
         return redirect("components:category_list")
     return render(request, "components/category_confirm_delete.html", {"category": category})
+
+def namespace_demo(request):
+    """演示应用命名空间 + 带参反向解析"""
+    results = {
+        "列表页": reverse("components:category_list"),
+        "详情页 (args)": reverse("components:category_detail", args=[1]),
+        "详情页 (kwargs)": reverse("components:category_detail", kwargs={"pk": 1}),
+    }
+    html = "<br>".join(f"<b>{k}</b>: {v}" for k, v in results.items())
+    return HttpResponse(html)

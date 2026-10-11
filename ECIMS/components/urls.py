@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import views
-
+# 应用命名空间
 app_name = "components"
 
 urlpatterns = [
@@ -10,4 +10,5 @@ urlpatterns = [
     path("categories/<int:pk>/", views.category_detail, name="category_detail"),
     path("categories/<int:pk>/edit/", views.category_edit, name="category_edit"),
     path("categories/<int:pk>/delete/", views.category_delete, name="category_delete"),
+    path("namespace-demo/", views.namespace_demo, name="namespace_demo"),    
 ]
