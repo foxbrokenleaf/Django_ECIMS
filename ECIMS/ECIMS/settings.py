@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "lesson_test.apps.LessonTestConfig",
     "components.apps.ComponentsConfig",
     "django.contrib.admin",
     "django.contrib.auth",
