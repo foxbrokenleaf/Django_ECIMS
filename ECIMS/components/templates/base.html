@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load component_extras %}<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -131,13 +131,14 @@
         <aside class="col-md-2 sidebar p-0">
             <ul class="nav flex-column pt-3">
                 <li class="nav-item">
-                    <a class="nav-link {% if 'category' in request.path %}active{% endif %}"
+                    <a class="nav-link {% nav_active 'components:category' %}"
                        href="{% url 'components:category_list' %}">
                         <i class="bi bi-diagram-3"></i> 品类管理
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link {% nav_active 'components:component' %}"
+                       href="{% url 'components:component_list' %}">
                         <i class="bi bi-box-seam"></i> 元件管理
                     </a>
                 </li>

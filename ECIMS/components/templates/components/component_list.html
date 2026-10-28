@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load component_extras %}
+{% block title %}元件管理 · ECIMS{% endblock %}
+
+{% block content %}
+
+<!-- 页头 -->
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold">
+            <i class="bi bi-box-seam text-primary me-2"></i>元件管理
+        </h1>
+        <p class="text-muted small mb-0">维护元件信息与规格参数，出入库请在元件详情页登记</p>
+    </div>
+    <a href="{% url 'components:component_create' %}" class="btn btn-primary shadow-sm">
+        <i class="bi bi-plus-lg me-1"></i> 新增元件
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <!-- 筛选 -->
+    <div class="card-header bg-white border-bottom py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">关键字</label>
+                <input type="text" name="q" value="{{ filters.q }}" class="form-control"
+                       placeholder="名称 / 型号 / 参数值 / 制造商 / 封装">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">品类</label>
+                <select name="category" class="form-select">
+                    <option value="">全部品类</option>
+                    {% for c in categories %}
+                        <option value="{{ c.pk }}"
+                                {% if filters.category == c.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ c.full_path }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">安装方式</label>
+                <select name="mount_type" class="form-select">
+                    <option value="">全部</option>
+                    {% for value, label in mount_types %}
+                        <option value="{{ value }}"
+                                {% if filters.mount_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex flex-wrap align-items-center gap-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="low_stock" value="1"
+                           id="lowStock" {% if filters.low_stock %}checked{% endif %}>
+                    <label class="form-check-label small" for="lowStock">仅看低库存</label>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel"></i> 筛选
+                </button>
+                <a href="{% url 'components:component_list' %}" class="btn btn-light border">重置</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- 统计 -->
+    <div class="card-body py-2 d-flex flex-wrap gap-4 small text-muted border-bottom">
+        <span>共 <strong class="text-dark">{{ total_count }}</strong> 个元件</span>
+        <span>
+            <i class="bi bi-exclamation-triangle text-danger me-1"></i>
+            低库存 <strong class="text-danger">{{ low_stock_count }}</strong> 个
+        </span>
+    </div>
+
+    <!-- 表格 -->
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr class="table-light">
+                    <th class="ps-4">元件</th>
+                    <th style="width: 170px;">品类</th>
+                    <th style="width: 110px;">封装</th>
+                    <th style="width: 90px;">安装</th>
+                    <th style="width: 140px;">库存</th>
+                    <th style="width: 120px;">参考单价</th>
+                    <th class="text-end pe-4" style="width: 150px;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in components %}
+                <tr>
+                    <td class="ps-4">
+                        <a href="{% url 'components:component_detail' c.pk %}"
+                           class="text-decoration-none fw-medium text-dark d-block">
+                            {{ c.name }}
+                        </a>
+                        <code class="text-muted small">{{ c.model_number }}</code>
+                        {% if c.value %}
+                            <span class="text-muted small ms-1">· {{ c.value }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ c.category.full_path }}</td>
+                    <td>
+                        {% if c.package %}
+                            <code class="text-primary bg-primary-subtle px-2 py-1 rounded">{{ c.package }}</code>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small">{{ c.get_mount_type_display }}</td>
+                    <td>{% stock_badge c %}</td>
+                    <td class="small">¥ {{ c.reference_price|floatformat:4 }}</td>
+                    <td class="text-end pe-4">
+                        <a href="{% url 'components:component_detail' c.pk %}"
+                           class="btn btn-sm btn-light border" title="查看">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'components:component_edit' c.pk %}"
+                           class="btn btn-sm btn-light border" title="编辑">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'components:component_delete' c.pk %}"
+                           class="btn btn-sm btn-light border text-danger" title="停用">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
+                            <p class="mb-2">没有符合条件的元件</p>
+                            <a href="{% url 'components:component_create' %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-plus-lg"></i> 新增元件
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if is_paginated %}
+    <div class="card-footer bg-white border-top py-3">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                    </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">
+                        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

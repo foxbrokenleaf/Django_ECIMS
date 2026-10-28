@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load component_extras %}
+{% block title %}{% if action == 'create' %}新增元件{% else %}编辑元件{% endif %} · ECIMS{% endblock %}
+
+{% block content %}
+
+<!-- 页头 -->
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold">
+            <i class="bi bi-box-seam text-primary me-2"></i>
+            {% if action == 'create' %}新增元件{% else %}编辑元件{% endif %}
+        </h1>
+        <p class="text-muted small mb-0">
+            {% if action == 'create' %}
+                维护元件基础信息、规格参数与安全库存，库存数量通过出入库流水登记
+            {% else %}
+                {{ component.name }} · <code>{{ component.model_number }}</code>
+            {% endif %}
+        </p>
+    </div>
+    <a href="{% if component %}{% url 'components:component_detail' component.pk %}{% else %}{% url 'components:component_list' %}{% endif %}"
+       class="btn btn-light border">
+        <i class="bi bi-arrow-left me-1"></i> 返回
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 基本信息 -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-info-circle text-primary me-2"></i>基本信息
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {% include "components/_form_field.html" with field=form.name %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {% include "components/_form_field.html" with field=form.model_number %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {% include "components/_form_field.html" with field=form.category %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {% include "components/_form_field.html" with field=form.manufacturer %}
+                </div>
+                <div class="col-12 mb-0">
+                    {% include "components/_form_field.html" with field=form.description %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 规格参数 -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-sliders text-primary me-2"></i>规格参数
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.package %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.mount_type %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.value %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.tolerance %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.voltage_rating %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.power_rating %}
+                </div>
+                <div class="col-12 mb-0">
+                    {% include "components/_form_field.html" with field=form.extra_specs %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 库存 -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-boxes text-primary me-2"></i>库存与存放
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    {% include "components/_form_field.html" with field=form.safety_stock %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {% include "components/_form_field.html" with field=form.unit %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {% include "components/_form_field.html" with field=form.storage_location %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {% include "components/_form_field.html" with field=form.batch_number %}
+                </div>
+
+                {% if action == 'create' %}
+                <div class="col-md-3 mb-0">
+                    {% include "components/_form_field.html" with field=form.initial_stock %}
+                </div>
+                {% else %}
+                <div class="col-md-6 mb-0">
+                    <label class="form-label small text-muted mb-1">当前库存</label>
+                    <div class="form-control bg-light d-flex align-items-center gap-2">
+                        {% stock_badge component %}
+                        <a href="{% url 'components:component_detail' component.pk %}#stock"
+                           class="ms-auto small text-decoration-none">去登记出入库</a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 采购与附件 -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-cart text-primary me-2"></i>采购与附件
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.reference_price %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {% include "components/_form_field.html" with field=form.supplier %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="form-check mt-4">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            {{ form.is_active.label }}
+                        </label>
+                        <div class="form-text">停用后不在列表中显示，历史流水保留</div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-0">
+                    {% include "components/_form_field.html" with field=form.datasheet %}
+                </div>
+                <div class="col-md-6 mb-0">
+                    {% include "components/_form_field.html" with field=form.image %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-5">
+        <button type="submit" class="btn btn-primary shadow-sm">
+            <i class="bi bi-check-lg me-1"></i>
+            {% if action == 'create' %}创建元件{% else %}保存修改{% endif %}
+        </button>
+        <a href="{% if component %}{% url 'components:component_detail' component.pk %}{% else %}{% url 'components:component_list' %}{% endif %}"
+           class="btn btn-light border">取消</a>
+    </div>
+</form>
+
+{% endblock %}

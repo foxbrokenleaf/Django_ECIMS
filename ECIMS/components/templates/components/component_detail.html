@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% load component_extras %}
+{% block title %}{{ component.name }} · 元件详情 · ECIMS{% endblock %}
+
+{% block content %}
+
+<!-- 面包屑 -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'components:component_list' %}" class="text-decoration-none">元件管理</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'components:category_detail' component.category.pk %}" class="text-decoration-none">{{ component.category.full_path }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ component.model_number }}</li>
+    </ol>
+</nav>
+
+<!-- 概要 -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3">
+            {% if component.image %}
+                <img src="{{ component.image.url }}" alt="{{ component.name }}"
+                     class="rounded border" style="width: 64px; height: 64px; object-fit: cover;">
+            {% else %}
+                <div class="rounded bg-primary-subtle text-primary d-flex align-items-center justify-content-center"
+                     style="width: 64px; height: 64px;">
+                    <i class="bi bi-cpu fs-3"></i>
+                </div>
+            {% endif %}
+            <div>
+                <h1 class="h5 mb-1 fw-semibold">
+                    {{ component.name }}
+                    {% if not component.is_active %}
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">已停用</span>
+                    {% endif %}
+                </h1>
+                <div class="text-muted small">
+                    <code class="text-primary">{{ component.model_number }}</code>
+                    {% if component.manufacturer %}<span class="ms-2">· {{ component.manufacturer }}</span>{% endif %}
+                    {% if component.package %}<span class="ms-2">· {{ component.package }}</span>{% endif %}
+                    <span class="ms-2">· {{ component.get_mount_type_display }}</span>
+                </div>
+                <div class="mt-2">{% stock_badge component %}</div>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'components:component_edit' component.pk %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-pencil me-1"></i> 编辑
+            </a>
+            <a href="{% url 'components:component_delete' component.pk %}" class="btn btn-light border text-danger">
+                <i class="bi bi-slash-circle me-1"></i> 停用
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- 左：规格与描述 -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-sliders text-primary me-2"></i>规格参数
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4" style="width: 130px;">所属品类</th>
+                            <td>{{ component.category.full_path }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">封装</th>
+                            <td>{{ component.package|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">安装方式</th>
+                            <td>{{ component.get_mount_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">参数值</th>
+                            <td>{{ component.value|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">精度/容差</th>
+                            <td>{{ component.tolerance|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">额定电压</th>
+                            <td>{{ component.voltage_rating|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">额定功率</th>
+                            <td>{{ component.power_rating|default:"—" }}</td>
+                        </tr>
+                        {% for key, value in component.extra_specs.items %}
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">{{ key }}</th>
+                            <td>{{ value }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">描述</th>
+                            <td class="small">{{ component.description|default:"—"|linebreaksbr }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted fw-normal small ps-4">数据手册</th>
+                            <td class="small">
+                                {% if component.datasheet %}
+                                    <a href="{{ component.datasheet.url }}" target="_blank" rel="noopener"
+                                       class="text-decoration-none">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>下载附件
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">未上传</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右：库存 / 采购 / 审计 -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-boxes text-primary me-2"></i>库存信息
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small">当前库存</span>
+                    <span class="fs-5 fw-semibold">{{ component.stock_quantity }} {{ component.unit }}</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">安全库存</span>
+                    <span>{{ component.safety_stock }} {{ component.unit }}</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">存放位置</span>
+                    <span>{{ component.storage_location|default:"—" }}</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">批次号</span>
+                    <span>{{ component.batch_number|default:"—" }}</span>
+                </div>
+                {% if component.is_low_stock %}
+                <div class="alert alert-danger py-2 px-3 small mb-0 mt-3">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    库存已低于安全库存，建议及时补货
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-cart text-primary me-2"></i>采购信息
+            </div>
+            <div class="card-body small">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">参考单价</span>
+                    <span>¥ {{ component.reference_price|floatformat:4 }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">供应商</span>
+                    <span>{{ component.supplier|default:"—" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-clock-history text-primary me-2"></i>审计信息
+            </div>
+            <div class="card-body small">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">创建人</span>
+                    <span>{{ component.created_by.username|default:"—" }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">创建时间</span>
+                    <span>{{ component.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">更新时间</span>
+                    <span>{{ component.updated_at|date:"Y-m-d H:i" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 出入库 -->
+<div class="row g-3 mt-1" id="stock">
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-arrow-left-right text-primary me-2"></i>登记出入库
+            </div>
+            <form method="post" action="{% url 'components:component_stock' component.pk %}" class="card-body">
+                {% csrf_token %}
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1" for="{{ stock_form.record_type.id_for_label }}">
+                            {{ stock_form.record_type.label }}
+                        </label>
+                        {{ stock_form.record_type }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1" for="{{ stock_form.quantity.id_for_label }}">
+                            {{ stock_form.quantity.label }}
+                        </label>
+                        {{ stock_form.quantity }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1" for="{{ stock_form.unit_price.id_for_label }}">
+                            {{ stock_form.unit_price.label }}
+                        </label>
+                        {{ stock_form.unit_price }}
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1" for="{{ stock_form.batch_number.id_for_label }}">
+                            {{ stock_form.batch_number.label }}
+                        </label>
+                        {{ stock_form.batch_number }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-muted mb-1" for="{{ stock_form.storage_location.id_for_label }}">
+                            {{ stock_form.storage_location.label }}
+                        </label>
+                        {{ stock_form.storage_location }}
+                    </div>
+                    <div class="col-12 mb-0">
+                        <label class="form-label small text-muted mb-1" for="{{ stock_form.remark.id_for_label }}">
+                            {{ stock_form.remark.label }}
+                        </label>
+                        {{ stock_form.remark }}
+                    </div>
+                </div>
+                <div class="form-text mt-2">{{ stock_form.quantity.help_text }}</div>
+                <button type="submit" class="btn btn-primary w-100 mt-3">
+                    <i class="bi bi-check-lg me-1"></i> 提交登记
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-clock-history text-primary me-2"></i>出入库流水</span>
+                <span class="text-muted small">最近 {{ records|length }} 条</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr class="table-light">
+                            <th class="ps-4">时间</th>
+                            <th>类型</th>
+                            <th class="text-end">数量</th>
+                            <th class="text-end">变动后</th>
+                            <th class="text-end pe-4">操作人</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in records %}
+                        <tr>
+                            <td class="ps-4 small text-muted">{{ r.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>{% record_type_badge r %}</td>
+                            <td class="text-end small {% if r.quantity < 0 %}text-danger{% else %}text-success{% endif %}">
+                                {% if r.quantity > 0 %}+{% endif %}{{ r.quantity }}
+                            </td>
+                            <td class="text-end small">{{ r.quantity_after }}</td>
+                            <td class="text-end pe-4 small text-muted">
+                                {{ r.operator.username|default:"—" }}
+                                {% if r.remark %}
+                                    <i class="bi bi-chat-left-text ms-1" title="{{ r.remark }}"></i>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4 small">
+                                暂无出入库记录，左侧登记第一笔吧
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+

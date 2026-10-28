@@ -118,6 +118,14 @@ USE_TZ = False
 
 STATIC_URL = "static/"
 
+# 上传文件（数据手册、元件图片）
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# 登录相关：本项目复用 admin 登录页
+LOGIN_URL = "/admin/login/"
+LOGIN_REDIRECT_URL = "/components/"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 

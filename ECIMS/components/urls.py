@@ -5,6 +5,12 @@ from . import views
 app_name = "components"
 
 urlpatterns = [
+    path("", views.component_list, name="component_list"),
+    path("create/", views.component_create, name="component_create"),
+    path("<int:pk>/", views.component_detail, name="component_detail"),
+    path("<int:pk>/edit/", views.component_edit, name="component_edit"),
+    path("<int:pk>/delete/", views.component_delete, name="component_delete"),
+    path("<int:pk>/stock/", views.component_stock, name="component_stock"),
     path("categories/", views.category_list, name="category_list"),
     path("categories/create/", views.category_create, name="category_create"),
     path("categories/<int:pk>/", views.category_detail, name="category_detail"),
