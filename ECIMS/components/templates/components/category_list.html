@@ -16,6 +16,64 @@
     </a>
 </div>
 
+<!-- ===== 任务二演示区：过滤器 + 标签 ===== -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom py-2">
+        <span class="small text-muted"><i class="bi bi-code-square me-1"></i>DTL 演示区</span>
+    </div>
+    <div class="card-body py-3 small">
+
+        <!-- 【过滤器 default】搜索关键字为空时显示「全部」 -->
+        <div class="mb-1">
+            当前搜索：<code>{{ request.GET.q|default:'全部' }}</code>
+            <!-- 【过滤器 upper】关键字转大写 -->
+            （大写：<code>{{ request.GET.q|default:'all'|upper }}</code>，
+            <!-- 【过滤器 lower】关键字转小写 -->
+            小写：<code>{{ request.GET.q|default:'all'|lower }}</code>）
+        </div>
+
+        <!-- 【过滤器 length】当前页条数 / 搜索结果长度 -->
+        <div class="mb-1">
+            当前页品类数：<span class="badge bg-secondary">{{ categories|length }}</span>
+        </div>
+
+        <!-- 【过滤器 date】当前时间格式化（用 request 无法取时间，改用首条数据时间演示） -->
+        <div class="mb-1">
+            首条创建时间（date 格式化）：
+            {% if categories %}
+                <code>{{ categories.0.created_at|date:"Y年m月d日 H:i" }}</code>
+            {% else %}
+                <span class="text-muted">—</span>
+            {% endif %}
+        </div>
+
+        <!-- 【for 标签】遍历品类名称，演示 forloop 与 empty -->
+        <div class="mb-1">
+            名称列表（upper）：
+            {% for c in categories %}
+                <span class="badge bg-light text-dark border">
+                    {{ forloop.counter }}.{{ c.name|upper }}
+                </span>
+            {% empty %}
+                <span class="text-muted">暂无数据</span>
+            {% endfor %}
+        </div>
+
+        <!-- 【if / elif / else】按结果条数给出三档状态提示 -->
+        <div>
+            数据状态：
+            {% if categories|length > 10 %}
+                <span class="text-danger">数据较多，共 {{ categories|length }} 条</span>
+            {% elif categories|length > 0 %}
+                <span class="text-success">共 {{ categories|length }} 条数据</span>
+            {% else %}
+                <span class="text-secondary">暂无数据，请先创建品类</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<!-- ===== 演示区结束 ===== -->
+
 <!-- 数据卡片 -->
 <div class="card border-0 shadow-sm">
     <!-- 卡片头部：搜索 + 统计 -->
@@ -32,6 +90,7 @@
             </div>
             <div class="col-md-6 text-md-end">
                 <span class="text-muted small">
+                    <!-- 【过滤器 default + length】无分页时退化为 categories 长度 -->
                     共 <strong class="text-dark">{{ page_obj.paginator.count|default:categories|length }}</strong> 条
                 </span>
             </div>
@@ -51,12 +110,15 @@
                 </tr>
             </thead>
             <tbody>
+                <!-- 【for 标签】遍历品类列表，empty 处理空数据 -->
                 {% for c in categories %}
-                <tr>
+                <!-- 【if + forloop.counter】偶数行加浅色背景 -->
+                <tr class="{% if forloop.counter|divisibleby:2 %}table-light{% endif %}">
                     <td class="ps-4">
+                        <!-- 【if/else + default/upper】编码为空显示 —，否则大写显示 -->
                         {% if c.code %}
                             <code class="text-primary bg-primary-subtle px-2 py-1 rounded">
-                                {{ c.code }}
+                                {{ c.code|default:'—'|upper }}
                             </code>
                         {% else %}
                             <span class="text-muted">—</span>
@@ -65,10 +127,11 @@
                     <td>
                         <a href="{% url 'components:category_detail' c.pk %}"
                            class="text-decoration-none fw-medium text-dark">
-                            {{ c.name }}
+                            {{ c.name|default:'未命名品类' }}
                         </a>
                     </td>
                     <td>
+                        <!-- 【if/else】有上级显示徽章，否则显示顶级品类 -->
                         {% if c.parent %}
                             <span class="badge bg-light text-dark border">
                                 <i class="bi bi-arrow-return-right me-1"></i>{{ c.parent.name }}
@@ -78,6 +141,7 @@
                         {% endif %}
                     </td>
                     <td class="text-muted small">
+                        <!-- 【过滤器 date】格式化创建时间 -->
                         {{ c.created_at|date:"Y-m-d H:i" }}
                     </td>
                     <td class="text-end pe-4">
