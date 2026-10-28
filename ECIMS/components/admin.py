@@ -34,7 +34,7 @@ class ComponentAdmin(admin.ModelAdmin):
             "fields": ("stock_quantity", "safety_stock", "unit",
                        "storage_location", "batch_number")
         }),
-        ("采购", {"fields": ("reference_price", "supplier")}),
+        ("采购", {"fields": ("cost_price", "reference_price", "supplier")}),
         ("附件", {"fields": ("datasheet", "image")}),
         ("状态与审计", {
             "fields": ("is_active", "created_by", "created_at", "updated_at")

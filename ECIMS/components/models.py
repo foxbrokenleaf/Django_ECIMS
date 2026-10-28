@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from decimal import Decimal
+import uuid
 
 User = get_user_model()
 
@@ -45,6 +46,34 @@ class Category(models.Model):
             names.append(node.name)
             node = node.parent
         return "/".join(reversed(names))
+    
+    def save(self, *args, **kwargs):
+        # 1. 自动生成 code（未填写时）
+        if not self.code:
+            self.code = self._generate_code()
+
+        # 2. 防止自己成为自己的上级（简单自环校验）
+        if self.parent_id and self.pk and self.parent_id == self.pk:
+            raise ValueError("上级品类不能是自身")
+
+        # 3. 规范化 name：去首尾空格
+        if self.name:
+            self.name = self.name.strip()
+
+        # 4. 交给 Django 真正写库（INSERT 或 UPDATE）
+        super().save(*args, **kwargs)
+
+    def _generate_code(self):
+        """基于完整路径生成唯一编码，如 RES-SMD-0603"""
+        # 用 full_path 保证多级分类下编码可读且相对唯一
+        raw = self.full_path
+        # 简单转拼音/英文不现实，这里用 name 的哈希后缀兜底唯一性
+        suffix = uuid.uuid4().hex[:6].upper()
+        # 清理非法字符（保留字母数字和连字符）
+        cleaned = "".join(
+            ch if ch.isalnum() or ch in "-_" else "-" for ch in raw
+        ).strip("-")
+        return f"{cleaned}-{suffix}" if cleaned else suffix    
 
 
 class Component(models.Model):
@@ -101,6 +130,11 @@ class Component(models.Model):
     batch_number = models.CharField("批次号", max_length=100, blank=True)
 
     # 采购相关
+    cost_price = models.DecimalField(
+        "成本单价", max_digits=12, decimal_places=4,
+        default=Decimal("0.0000"),
+        help_text="采购成本价，用于与参考单价比较、计算毛利",
+    )
     reference_price = models.DecimalField(
         "参考单价", max_digits=12, decimal_places=4,
         default=Decimal("0.0000"),
