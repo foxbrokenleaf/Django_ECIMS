@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load component_extras %}
 {% block title %}{{ category.name }} · 品类详情 · ECIMS{% endblock %}
 
 {% block content %}
@@ -7,10 +6,10 @@
 <!-- 面包屑 -->
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb small mb-0">
-        <li class="breadcrumb-item"><a href="{% url 'components:category_list' %}" class="text-decoration-none">品类管理</a></li>
+        <li class="breadcrumb-item"><a href="{{ url('components:category_list') }}" class="text-decoration-none">品类管理</a></li>
         {% if category.parent %}
             <li class="breadcrumb-item">
-                <a href="{% url 'components:category_detail' category.parent.pk %}" class="text-decoration-none">
+                <a href="{{ url('components:category_detail', category.parent.pk) }}" class="text-decoration-none">
                     {{ category.parent.name }}
                 </a>
             </li>
@@ -35,13 +34,13 @@
             </div>
         </div>
         <div class="d-flex gap-2">
-            <a href="{% url 'components:component_list' %}?category={{ category.pk }}" class="btn btn-light border">
+            <a href="{{ url('components:component_list') }}?category={{ category.pk }}" class="btn btn-light border">
                 <i class="bi bi-box-seam me-1"></i> 查看该品类元件
             </a>
-            <a href="{% url 'components:category_edit' category.pk %}" class="btn btn-primary shadow-sm">
+            <a href="{{ url('components:category_edit', category.pk) }}" class="btn btn-primary shadow-sm">
                 <i class="bi bi-pencil me-1"></i> 编辑
             </a>
-            <a href="{% url 'components:category_delete' category.pk %}" class="btn btn-light border text-danger">
+            <a href="{{ url('components:category_delete', category.pk) }}" class="btn btn-light border text-danger">
                 <i class="bi bi-slash-circle me-1"></i> 停用
             </a>
         </div>
@@ -63,7 +62,7 @@
                     <span class="text-muted">上级品类</span>
                     <span>
                         {% if category.parent %}
-                            <a href="{% url 'components:category_detail' category.parent.pk %}"
+                            <a href="{{ url('components:category_detail', category.parent.pk) }}"
                                class="text-decoration-none">{{ category.parent.name }}</a>
                         {% else %}
                             顶级品类
@@ -72,14 +71,14 @@
                 </div>
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted">创建时间</span>
-                    <span>{{ category.created_at|date:"Y-m-d H:i" }}</span>
+                    <span>{{ category.created_at|date("Y-m-d H:i") }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-3">
                     <span class="text-muted">更新时间</span>
-                    <span>{{ category.updated_at|date:"Y-m-d H:i" }}</span>
+                    <span>{{ category.updated_at|date("Y-m-d H:i") }}</span>
                 </div>
                 <div class="text-muted">描述</div>
-                <div class="mt-1">{{ category.description|default:"—"|linebreaksbr }}</div>
+                <div class="mt-1">{{ category.description|default("—", true)|linebreaksbr }}</div>
             </div>
         </div>
     </div>
@@ -109,12 +108,12 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{% url 'components:category_detail' child.pk %}"
+                                <a href="{{ url('components:category_detail', child.pk) }}"
                                    class="text-decoration-none">{{ child.name }}</a>
                             </td>
-                            <td class="text-end pe-4 small text-muted">{{ child.components.count }}</td>
+                            <td class="text-end pe-4 small text-muted">{{ child.components.count() }}</td>
                         </tr>
-                        {% empty %}
+                        {% else %}
                         <tr>
                             <td colspan="3" class="text-center text-muted py-4 small">暂无子品类</td>
                         </tr>
@@ -127,7 +126,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                 <span class="fw-semibold"><i class="bi bi-box-seam text-primary me-2"></i>元件（最近 20 个）</span>
-                <a href="{% url 'components:component_list' %}?category={{ category.pk }}"
+                <a href="{{ url('components:component_list') }}?category={{ category.pk }}"
                    class="small text-decoration-none">查看全部</a>
             </div>
             <div class="table-responsive">
@@ -143,14 +142,14 @@
                         {% for c in components %}
                         <tr>
                             <td class="ps-4">
-                                <a href="{% url 'components:component_detail' c.pk %}"
+                                <a href="{{ url('components:component_detail', c.pk) }}"
                                    class="text-decoration-none fw-medium text-dark">{{ c.name }}</a>
                                 <div class="text-muted small"><code>{{ c.model_number }}</code></div>
                             </td>
-                            <td class="small">{{ c.package|default:"—" }}</td>
-                            <td>{% stock_badge c %}</td>
+                            <td class="small">{{ c.package|default("—", true) }}</td>
+                            <td>{{ stock_badge(c) }}</td>
                         </tr>
-                        {% empty %}
+                        {% else %}
                         <tr>
                             <td colspan="3" class="text-center text-muted py-4 small">该品类下还没有元件</td>
                         </tr>

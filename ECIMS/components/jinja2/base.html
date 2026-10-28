@@ -1,4 +1,4 @@
-{% load component_extras %}<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -108,8 +108,8 @@
                             <li><a class="dropdown-item" href="/admin/">后台管理</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <form method="post" action="{% url 'admin:logout' %}" class="d-inline">
-                                    {% csrf_token %}
+                                <form method="post" action="{{ url('admin:logout') }}" class="d-inline">
+                                    {{ csrf_input }}
                                     <button class="dropdown-item" type="submit">退出登录</button>
                                 </form>
                             </li>
@@ -131,14 +131,14 @@
         <aside class="col-md-2 sidebar p-0">
             <ul class="nav flex-column pt-3">
                 <li class="nav-item">
-                    <a class="nav-link {% nav_active 'components:category' %}"
-                       href="{% url 'components:category_list' %}">
+                    <a class="nav-link {{ nav_active('components:category') }}"
+                       href="{{ url('components:category_list') }}">
                         <i class="bi bi-diagram-3"></i> 品类管理
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% nav_active 'components:component' %}"
-                       href="{% url 'components:component_list' %}">
+                    <a class="nav-link {{ nav_active('components:component') }}"
+                       href="{{ url('components:component_list') }}">
                         <i class="bi bi-box-seam"></i> 元件管理
                     </a>
                 </li>
@@ -169,7 +169,7 @@
         <main class="col-md-10 main-content">
             {% if messages %}
                 {% for m in messages %}
-                    <div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                    <div class="alert alert-{{ m.tags|default('info', true) }} alert-dismissible fade show" role="alert">
                         {{ m }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>

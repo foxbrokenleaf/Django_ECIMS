@@ -52,7 +52,24 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "ECIMS.urls"
 
+# 业务模板使用 Jinja2（components/jinja2/ 目录），Django 模板后端保留给
+# admin 站点与表单 widget 渲染使用。Jinja2 放在首位，render() 会优先命中它，
+# 找不到模板时自动回退到 DjangoTemplates。
 TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.jinja2.Jinja2",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "environment": "components.jinja2_env.environment",
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],

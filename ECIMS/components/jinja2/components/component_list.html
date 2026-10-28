@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load component_extras %}
 {% block title %}元件管理 · ECIMS{% endblock %}
 
 {% block content %}
@@ -12,7 +11,7 @@
         </h1>
         <p class="text-muted small mb-0">维护元件信息与规格参数，出入库请在元件详情页登记</p>
     </div>
-    <a href="{% url 'components:component_create' %}" class="btn btn-primary shadow-sm">
+    <a href="{{ url('components:component_create') }}" class="btn btn-primary shadow-sm">
         <i class="bi bi-plus-lg me-1"></i> 新增元件
     </a>
 </div>
@@ -32,7 +31,7 @@
                     <option value="">全部品类</option>
                     {% for c in categories %}
                         <option value="{{ c.pk }}"
-                                {% if filters.category == c.pk|stringformat:"s" %}selected{% endif %}>
+                                {% if filters.category == c.pk|string %}selected{% endif %}>
                             {{ c.full_path }}
                         </option>
                     {% endfor %}
@@ -57,7 +56,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-funnel"></i> 筛选
                 </button>
-                <a href="{% url 'components:component_list' %}" class="btn btn-light border">重置</a>
+                <a href="{{ url('components:component_list') }}" class="btn btn-light border">重置</a>
             </div>
         </form>
     </div>
@@ -89,7 +88,7 @@
                 {% for c in components %}
                 <tr>
                     <td class="ps-4">
-                        <a href="{% url 'components:component_detail' c.pk %}"
+                        <a href="{{ url('components:component_detail', c.pk) }}"
                            class="text-decoration-none fw-medium text-dark d-block">
                             {{ c.name }}
                         </a>
@@ -106,31 +105,31 @@
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
-                    <td class="small">{{ c.get_mount_type_display }}</td>
-                    <td>{% stock_badge c %}</td>
-                    <td class="small">¥ {{ c.reference_price|floatformat:4 }}</td>
+                    <td class="small">{{ c.get_mount_type_display() }}</td>
+                    <td>{{ stock_badge(c) }}</td>
+                    <td class="small">¥ {{ c.reference_price|floatformat(4) }}</td>
                     <td class="text-end pe-4">
-                        <a href="{% url 'components:component_detail' c.pk %}"
+                        <a href="{{ url('components:component_detail', c.pk) }}"
                            class="btn btn-sm btn-light border" title="查看">
                             <i class="bi bi-eye"></i>
                         </a>
-                        <a href="{% url 'components:component_edit' c.pk %}"
+                        <a href="{{ url('components:component_edit', c.pk) }}"
                            class="btn btn-sm btn-light border" title="编辑">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="{% url 'components:component_delete' c.pk %}"
+                        <a href="{{ url('components:component_delete', c.pk) }}"
                            class="btn btn-sm btn-light border text-danger" title="停用">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>
                 </tr>
-                {% empty %}
+                {% else %}
                 <tr>
                     <td colspan="7" class="text-center py-5">
                         <div class="text-muted">
                             <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
                             <p class="mb-2">没有符合条件的元件</p>
-                            <a href="{% url 'components:component_create' %}" class="btn btn-sm btn-primary">
+                            <a href="{{ url('components:component_create') }}" class="btn btn-sm btn-primary">
                                 <i class="bi bi-plus-lg"></i> 新增元件
                             </a>
                         </div>
@@ -146,9 +145,9 @@
     <div class="card-footer bg-white border-top py-3">
         <nav>
             <ul class="pagination pagination-sm justify-content-center mb-0">
-                {% if page_obj.has_previous %}
+                {% if page_obj.has_previous() %}
                     <li class="page-item">
-                        <a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">
+                        <a class="page-link" href="?{{ querystring(page=page_obj.previous_page_number()) }}">
                             <i class="bi bi-chevron-left"></i>
                         </a>
                     </li>
@@ -164,9 +163,9 @@
                     </span>
                 </li>
 
-                {% if page_obj.has_next %}
+                {% if page_obj.has_next() %}
                     <li class="page-item">
-                        <a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">
+                        <a class="page-link" href="?{{ querystring(page=page_obj.next_page_number()) }}">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>

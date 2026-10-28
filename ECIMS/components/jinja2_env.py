@@ -1,23 +1,39 @@
-"""components 应用的模板标签库。
+"""components 应用的 Jinja2 环境配置与模板助手。
 
-模板中使用前先加载：{% load component_extras %}
+在 settings.TEMPLATES 中通过 ``components.jinja2_env.environment`` 指定，
+用于补充 Django 模板标签提供的功能（url/static）以及自定义徽章、
+分页查询串与导航高亮函数。
+
+模板中的用法：
+
+    {{ url('components:component_detail', component.pk) }}
+    {{ csrf_input }}
+    {% for c in components %}{{ stock_badge(c) }}{% endfor %}
+    <a href="?{{ querystring(page=page_obj.next_page_number()) }}">下一页</a>
+    <a class="nav-link {{ nav_active('components:category') }}" ...>
 """
 
-from django import template
+import jinja2
 from django.http import QueryDict
+from django.template.defaultfilters import date as django_date
+from django.template.defaultfilters import floatformat, linebreaksbr
+from django.templatetags.static import static
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-register = template.Library()
+
+def url(viewname, *args, **kwargs):
+    """Jinja2 版的 {% url %}：{{ url('components:component_detail', pk) }}"""
+    return mark_safe(reverse(viewname, args=args, kwargs=kwargs))
 
 
-@register.simple_tag
 def stock_badge(component, with_unit=True):
     """渲染库存徽章；库存小于等于安全库存时显示红色预警。
 
     用法：
-        {% stock_badge component %}
-        {% stock_badge component False %}   不带单位
+        {{ stock_badge(component) }}
+        {{ stock_badge(component, False) }}   不带单位
     """
     quantity = f"{component.stock_quantity} {component.unit}" if with_unit else component.stock_quantity
 
@@ -36,11 +52,10 @@ def stock_badge(component, with_unit=True):
     )
 
 
-@register.simple_tag
 def record_type_badge(record):
     """渲染出入库类型徽章：入库绿、出库红、盘点黄、退料蓝。
 
-    用法：{% record_type_badge stock_record %}
+    用法：{{ record_type_badge(stock_record) }}
     """
     styles = {
         "IN": ("success", "success"),
@@ -55,12 +70,12 @@ def record_type_badge(record):
     )
 
 
-@register.simple_tag(takes_context=True)
+@jinja2.pass_context
 def querystring(context, **kwargs):
     """在当前 GET 参数基础上生成查询串，常用于分页链接保留筛选条件。
 
-    - 覆盖已有参数：{% querystring page=page_obj.next_page_number %}
-    - 传 None 移除参数：{% querystring page=None q=None %}
+    - 覆盖已有参数：{{ querystring(page=page_obj.next_page_number()) }}
+    - 传 None 移除参数：{{ querystring(page=None, q=None) }}
     """
     request = context.get("request")
     params = request.GET.copy() if request is not None else QueryDict(mutable=True)
@@ -74,11 +89,11 @@ def querystring(context, **kwargs):
     return mark_safe(params.urlencode())
 
 
-@register.simple_tag(takes_context=True)
+@jinja2.pass_context
 def nav_active(context, *view_names):
     """当前请求命中指定视图名时返回 active，用于导航高亮。
 
-    支持前缀匹配，因此 {% nav_active 'components:category' %} 可以同时命中
+    支持前缀匹配，因此 {{ nav_active('components:category') }} 可以同时命中
     category_list / category_detail / category_create / category_edit / category_delete。
     """
     match = getattr(context.get("request"), "resolver_match", None)
@@ -88,3 +103,23 @@ def nav_active(context, *view_names):
         if current == name or current.startswith(f"{name}_"):
             return "active"
     return ""
+
+
+def environment(**options):
+    """构造 Jinja2 环境，供 Django 的 Jinja2 模板后端调用。"""
+    env = jinja2.Environment(**options)
+    env.globals.update(
+        url=url,
+        static=static,
+        stock_badge=stock_badge,
+        record_type_badge=record_type_badge,
+        querystring=querystring,
+        nav_active=nav_active,
+    )
+    # 沿用 Django 过滤器，保证日期、小数与换行渲染与原模板一致
+    env.filters.update(
+        date=django_date,
+        floatformat=floatformat,
+        linebreaksbr=linebreaksbr,
+    )
+    return env

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load component_extras %}
 {% block title %}{{ component.name }} · 元件详情 · ECIMS{% endblock %}
 
 {% block content %}
@@ -7,8 +6,8 @@
 <!-- 面包屑 -->
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb small mb-0">
-        <li class="breadcrumb-item"><a href="{% url 'components:component_list' %}" class="text-decoration-none">元件管理</a></li>
-        <li class="breadcrumb-item"><a href="{% url 'components:category_detail' component.category.pk %}" class="text-decoration-none">{{ component.category.full_path }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ url('components:component_list') }}" class="text-decoration-none">元件管理</a></li>
+        <li class="breadcrumb-item"><a href="{{ url('components:category_detail', component.category.pk) }}" class="text-decoration-none">{{ component.category.full_path }}</a></li>
         <li class="breadcrumb-item active" aria-current="page">{{ component.model_number }}</li>
     </ol>
 </nav>
@@ -37,16 +36,16 @@
                     <code class="text-primary">{{ component.model_number }}</code>
                     {% if component.manufacturer %}<span class="ms-2">· {{ component.manufacturer }}</span>{% endif %}
                     {% if component.package %}<span class="ms-2">· {{ component.package }}</span>{% endif %}
-                    <span class="ms-2">· {{ component.get_mount_type_display }}</span>
+                    <span class="ms-2">· {{ component.get_mount_type_display() }}</span>
                 </div>
-                <div class="mt-2">{% stock_badge component %}</div>
+                <div class="mt-2">{{ stock_badge(component) }}</div>
             </div>
         </div>
         <div class="d-flex gap-2">
-            <a href="{% url 'components:component_edit' component.pk %}" class="btn btn-primary shadow-sm">
+            <a href="{{ url('components:component_edit', component.pk) }}" class="btn btn-primary shadow-sm">
                 <i class="bi bi-pencil me-1"></i> 编辑
             </a>
-            <a href="{% url 'components:component_delete' component.pk %}" class="btn btn-light border text-danger">
+            <a href="{{ url('components:component_delete', component.pk) }}" class="btn btn-light border text-danger">
                 <i class="bi bi-slash-circle me-1"></i> 停用
             </a>
         </div>
@@ -69,29 +68,29 @@
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">封装</th>
-                            <td>{{ component.package|default:"—" }}</td>
+                            <td>{{ component.package|default("—", true) }}</td>
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">安装方式</th>
-                            <td>{{ component.get_mount_type_display }}</td>
+                            <td>{{ component.get_mount_type_display() }}</td>
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">参数值</th>
-                            <td>{{ component.value|default:"—" }}</td>
+                            <td>{{ component.value|default("—", true) }}</td>
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">精度/容差</th>
-                            <td>{{ component.tolerance|default:"—" }}</td>
+                            <td>{{ component.tolerance|default("—", true) }}</td>
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">额定电压</th>
-                            <td>{{ component.voltage_rating|default:"—" }}</td>
+                            <td>{{ component.voltage_rating|default("—", true) }}</td>
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">额定功率</th>
-                            <td>{{ component.power_rating|default:"—" }}</td>
+                            <td>{{ component.power_rating|default("—", true) }}</td>
                         </tr>
-                        {% for key, value in component.extra_specs.items %}
+                        {% for key, value in component.extra_specs.items() %}
                         <tr>
                             <th class="text-muted fw-normal small ps-4">{{ key }}</th>
                             <td>{{ value }}</td>
@@ -99,7 +98,7 @@
                         {% endfor %}
                         <tr>
                             <th class="text-muted fw-normal small ps-4">描述</th>
-                            <td class="small">{{ component.description|default:"—"|linebreaksbr }}</td>
+                            <td class="small">{{ component.description|default("—", true)|linebreaksbr }}</td>
                         </tr>
                         <tr>
                             <th class="text-muted fw-normal small ps-4">数据手册</th>
@@ -137,11 +136,11 @@
                 </div>
                 <div class="d-flex justify-content-between small mb-2">
                     <span class="text-muted">存放位置</span>
-                    <span>{{ component.storage_location|default:"—" }}</span>
+                    <span>{{ component.storage_location|default("—", true) }}</span>
                 </div>
                 <div class="d-flex justify-content-between small mb-2">
                     <span class="text-muted">批次号</span>
-                    <span>{{ component.batch_number|default:"—" }}</span>
+                    <span>{{ component.batch_number|default("—", true) }}</span>
                 </div>
                 {% if component.is_low_stock %}
                 <div class="alert alert-danger py-2 px-3 small mb-0 mt-3">
@@ -159,11 +158,11 @@
             <div class="card-body small">
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted">参考单价</span>
-                    <span>¥ {{ component.reference_price|floatformat:4 }}</span>
+                    <span>¥ {{ component.reference_price|floatformat(4) }}</span>
                 </div>
                 <div class="d-flex justify-content-between">
                     <span class="text-muted">供应商</span>
-                    <span>{{ component.supplier|default:"—" }}</span>
+                    <span>{{ component.supplier|default("—", true) }}</span>
                 </div>
             </div>
         </div>
@@ -175,15 +174,15 @@
             <div class="card-body small">
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted">创建人</span>
-                    <span>{{ component.created_by.username|default:"—" }}</span>
+                    <span>{{ component.created_by.username|default("—", true) }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2">
                     <span class="text-muted">创建时间</span>
-                    <span>{{ component.created_at|date:"Y-m-d H:i" }}</span>
+                    <span>{{ component.created_at|date("Y-m-d H:i") }}</span>
                 </div>
                 <div class="d-flex justify-content-between">
                     <span class="text-muted">更新时间</span>
-                    <span>{{ component.updated_at|date:"Y-m-d H:i" }}</span>
+                    <span>{{ component.updated_at|date("Y-m-d H:i") }}</span>
                 </div>
             </div>
         </div>
@@ -198,8 +197,8 @@
             <div class="card-header bg-white py-3 fw-semibold">
                 <i class="bi bi-arrow-left-right text-primary me-2"></i>登记出入库
             </div>
-            <form method="post" action="{% url 'components:component_stock' component.pk %}" class="card-body">
-                {% csrf_token %}
+            <form method="post" action="{{ url('components:component_stock', component.pk) }}" class="card-body">
+                {{ csrf_input }}
                 <div class="row g-2">
                     <div class="col-6">
                         <label class="form-label small text-muted mb-1" for="{{ stock_form.record_type.id_for_label }}">
@@ -266,20 +265,20 @@
                     <tbody>
                         {% for r in records %}
                         <tr>
-                            <td class="ps-4 small text-muted">{{ r.created_at|date:"Y-m-d H:i" }}</td>
-                            <td>{% record_type_badge r %}</td>
+                            <td class="ps-4 small text-muted">{{ r.created_at|date("Y-m-d H:i") }}</td>
+                            <td>{{ record_type_badge(r) }}</td>
                             <td class="text-end small {% if r.quantity < 0 %}text-danger{% else %}text-success{% endif %}">
                                 {% if r.quantity > 0 %}+{% endif %}{{ r.quantity }}
                             </td>
                             <td class="text-end small">{{ r.quantity_after }}</td>
                             <td class="text-end pe-4 small text-muted">
-                                {{ r.operator.username|default:"—" }}
+                                {{ r.operator.username|default("—", true) }}
                                 {% if r.remark %}
                                     <i class="bi bi-chat-left-text ms-1" title="{{ r.remark }}"></i>
                                 {% endif %}
                             </td>
                         </tr>
-                        {% empty %}
+                        {% else %}
                         <tr>
                             <td colspan="5" class="text-center text-muted py-4 small">
                                 暂无出入库记录，左侧登记第一笔吧

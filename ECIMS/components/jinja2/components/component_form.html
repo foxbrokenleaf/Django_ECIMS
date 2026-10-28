@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load component_extras %}
+{% from "components/_form_field.html" import form_field %}
 {% block title %}{% if action == 'create' %}新增元件{% else %}编辑元件{% endif %} · ECIMS{% endblock %}
 
 {% block content %}
@@ -19,18 +19,18 @@
             {% endif %}
         </p>
     </div>
-    <a href="{% if component %}{% url 'components:component_detail' component.pk %}{% else %}{% url 'components:component_list' %}{% endif %}"
+    <a href="{% if component %}{{ url('components:component_detail', component.pk) }}{% else %}{{ url('components:component_list') }}{% endif %}"
        class="btn btn-light border">
         <i class="bi bi-arrow-left me-1"></i> 返回
     </a>
 </div>
 
 <form method="post" enctype="multipart/form-data" novalidate>
-    {% csrf_token %}
+    {{ csrf_input }}
 
-    {% if form.non_field_errors %}
+    {% if form.non_field_errors() %}
     <div class="alert alert-danger">
-        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+        {% for error in form.non_field_errors() %}<div>{{ error }}</div>{% endfor %}
     </div>
     {% endif %}
 
@@ -42,19 +42,19 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    {% include "components/_form_field.html" with field=form.name %}
+                    {{ form_field(form.name) }}
                 </div>
                 <div class="col-md-6 mb-3">
-                    {% include "components/_form_field.html" with field=form.model_number %}
+                    {{ form_field(form.model_number) }}
                 </div>
                 <div class="col-md-6 mb-3">
-                    {% include "components/_form_field.html" with field=form.category %}
+                    {{ form_field(form.category) }}
                 </div>
                 <div class="col-md-6 mb-3">
-                    {% include "components/_form_field.html" with field=form.manufacturer %}
+                    {{ form_field(form.manufacturer) }}
                 </div>
                 <div class="col-12 mb-0">
-                    {% include "components/_form_field.html" with field=form.description %}
+                    {{ form_field(form.description) }}
                 </div>
             </div>
         </div>
@@ -68,25 +68,25 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.package %}
+                    {{ form_field(form.package) }}
                 </div>
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.mount_type %}
+                    {{ form_field(form.mount_type) }}
                 </div>
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.value %}
+                    {{ form_field(form.value) }}
                 </div>
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.tolerance %}
+                    {{ form_field(form.tolerance) }}
                 </div>
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.voltage_rating %}
+                    {{ form_field(form.voltage_rating) }}
                 </div>
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.power_rating %}
+                    {{ form_field(form.power_rating) }}
                 </div>
                 <div class="col-12 mb-0">
-                    {% include "components/_form_field.html" with field=form.extra_specs %}
+                    {{ form_field(form.extra_specs) }}
                 </div>
             </div>
         </div>
@@ -100,28 +100,28 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-3 mb-3">
-                    {% include "components/_form_field.html" with field=form.safety_stock %}
+                    {{ form_field(form.safety_stock) }}
                 </div>
                 <div class="col-md-3 mb-3">
-                    {% include "components/_form_field.html" with field=form.unit %}
+                    {{ form_field(form.unit) }}
                 </div>
                 <div class="col-md-3 mb-3">
-                    {% include "components/_form_field.html" with field=form.storage_location %}
+                    {{ form_field(form.storage_location) }}
                 </div>
                 <div class="col-md-3 mb-3">
-                    {% include "components/_form_field.html" with field=form.batch_number %}
+                    {{ form_field(form.batch_number) }}
                 </div>
 
                 {% if action == 'create' %}
                 <div class="col-md-3 mb-0">
-                    {% include "components/_form_field.html" with field=form.initial_stock %}
+                    {{ form_field(form.initial_stock) }}
                 </div>
                 {% else %}
                 <div class="col-md-6 mb-0">
                     <label class="form-label small text-muted mb-1">当前库存</label>
                     <div class="form-control bg-light d-flex align-items-center gap-2">
-                        {% stock_badge component %}
-                        <a href="{% url 'components:component_detail' component.pk %}#stock"
+                        {{ stock_badge(component) }}
+                        <a href="{{ url('components:component_detail', component.pk) }}#stock"
                            class="ms-auto small text-decoration-none">去登记出入库</a>
                     </div>
                 </div>
@@ -138,10 +138,10 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.reference_price %}
+                    {{ form_field(form.reference_price) }}
                 </div>
                 <div class="col-md-4 mb-3">
-                    {% include "components/_form_field.html" with field=form.supplier %}
+                    {{ form_field(form.supplier) }}
                 </div>
                 <div class="col-md-4 mb-3">
                     <div class="form-check mt-4">
@@ -153,10 +153,10 @@
                     </div>
                 </div>
                 <div class="col-md-6 mb-0">
-                    {% include "components/_form_field.html" with field=form.datasheet %}
+                    {{ form_field(form.datasheet) }}
                 </div>
                 <div class="col-md-6 mb-0">
-                    {% include "components/_form_field.html" with field=form.image %}
+                    {{ form_field(form.image) }}
                 </div>
             </div>
         </div>
@@ -167,7 +167,7 @@
             <i class="bi bi-check-lg me-1"></i>
             {% if action == 'create' %}创建元件{% else %}保存修改{% endif %}
         </button>
-        <a href="{% if component %}{% url 'components:component_detail' component.pk %}{% else %}{% url 'components:component_list' %}{% endif %}"
+        <a href="{% if component %}{{ url('components:component_detail', component.pk) }}{% else %}{{ url('components:component_list') }}{% endif %}"
            class="btn btn-light border">取消</a>
     </div>
 </form>

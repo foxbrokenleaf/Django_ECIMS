@@ -1,50 +1,54 @@
-"""components 应用测试：模板标签库 component_extras + 品类/元件管理视图。"""
+"""components 应用测试：Jinja2 模板助手 + 品类/元件管理视图。"""
 
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.http import QueryDict
-from django.template import Context, Template
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from . import jinja2_env
 from .models import Category, Component, StockRecord
 
-LOAD_TAGS = "{% load component_extras %}"
+
+def render_template(source, **context):
+    """用 components 的 Jinja2 环境渲染一段模板片段，返回渲染结果。"""
+    env = jinja2_env.environment(autoescape=True)
+    return env.from_string(source).render(**context)
 
 
-def render_tag(source, **context):
-    """渲染一段带 component_extras 的模板片段，返回渲染结果。"""
-    return Template(LOAD_TAGS + source).render(Context(context))
+def count_action(html, title):
+    """统计带指定 title 的操作按钮数，用于断言列表渲染出的行数。"""
+    return html.count(f'title="{title}"')
 
 
-class QuerystringTagTests(SimpleTestCase):
-    """{% querystring %} 保留 / 覆盖 / 移除 URL 参数。"""
+class QuerystringFunctionTests(SimpleTestCase):
+    """querystring() 保留 / 覆盖 / 移除 URL 参数。"""
 
     def setUp(self):
         self.request = SimpleNamespace(GET=QueryDict("q=电阻&page=2"))
 
     def test_keeps_existing_params(self):
-        params = QueryDict(render_tag("{% querystring page=3 %}", request=self.request))
+        params = QueryDict(render_template("{{ querystring(page=3) }}", request=self.request))
         self.assertEqual(params["q"], "电阻")
         self.assertEqual(params["page"], "3")
 
     def test_empty_value_removes_param(self):
-        params = QueryDict(render_tag("{% querystring page='' %}", request=self.request))
+        params = QueryDict(render_template("{{ querystring(page='') }}", request=self.request))
         self.assertEqual(params["q"], "电阻")
         self.assertNotIn("page", params)
 
     def test_works_without_request(self):
-        self.assertEqual(render_tag("{% querystring page=1 %}"), "page=1")
+        self.assertEqual(render_template("{{ querystring(page=1) }}"), "page=1")
 
 
-class NavActiveTagTests(SimpleTestCase):
-    """{% nav_active %} 导航高亮，支持视图名前缀匹配。"""
+class NavActiveFunctionTests(SimpleTestCase):
+    """nav_active() 导航高亮，支持视图名前缀匹配。"""
 
     def _render(self, view_name, *names):
         request = SimpleNamespace(resolver_match=SimpleNamespace(view_name=view_name))
-        source = "{% nav_active " + " ".join(f"'{n}'" for n in names) + " %}"
-        return render_tag(source, request=request)
+        source = "{{ nav_active(" + ", ".join(f"'{n}'" for n in names) + ") }}"
+        return render_template(source, request=request)
 
     def test_prefix_match_detail_page(self):
         self.assertEqual(self._render("components:category_detail", "components:category"), "active")
@@ -56,18 +60,18 @@ class NavActiveTagTests(SimpleTestCase):
         self.assertEqual(self._render("components:component_list", "components:category"), "")
 
     def test_missing_resolver_match(self):
-        self.assertEqual(render_tag("{% nav_active 'components:category' %}"), "")
+        self.assertEqual(render_template("{{ nav_active('components:category') }}"), "")
 
 
-class StockBadgeTagTests(SimpleTestCase):
-    """{% stock_badge %} 库存徽章渲染。模型实例无需入库。"""
+class StockBadgeFunctionTests(SimpleTestCase):
+    """stock_badge() 库存徽章渲染。模型实例无需入库。"""
 
     def test_low_stock_shows_danger_badge(self):
         component = Component(
             name="贴片电阻", model_number="RC0603-10K",
             stock_quantity=5, safety_stock=20,
         )
-        html = render_tag("{% stock_badge component %}", component=component)
+        html = render_template("{{ stock_badge(component) }}", component=component)
         self.assertIn("bg-danger-subtle", html)
         self.assertIn("5 个", html)
         self.assertIn('title="安全库存 20"', html)
@@ -77,7 +81,7 @@ class StockBadgeTagTests(SimpleTestCase):
             name="贴片电阻", model_number="RC0603-10K",
             stock_quantity=100, safety_stock=20,
         )
-        html = render_tag("{% stock_badge component %}", component=component)
+        html = render_template("{{ stock_badge(component) }}", component=component)
         self.assertIn("bg-success-subtle", html)
         self.assertIn("100 个", html)
 
@@ -86,30 +90,30 @@ class StockBadgeTagTests(SimpleTestCase):
             name="贴片电阻", model_number="RC0603-10K",
             stock_quantity=5, safety_stock=20,
         )
-        html = render_tag("{% stock_badge component False %}", component=component)
+        html = render_template("{{ stock_badge(component, False) }}", component=component)
         self.assertIn("5</span>", html)
 
 
-class RecordTypeBadgeTagTests(SimpleTestCase):
-    """{% record_type_badge %} 出入库类型徽章。"""
+class RecordTypeBadgeFunctionTests(SimpleTestCase):
+    """record_type_badge() 出入库类型徽章。"""
 
     def test_in_badge(self):
-        html = render_tag("{% record_type_badge record %}", record=StockRecord(record_type="IN"))
+        html = render_template("{{ record_type_badge(record) }}", record=StockRecord(record_type="IN"))
         self.assertIn("bg-success-subtle", html)
         self.assertIn("入库", html)
 
     def test_out_badge(self):
-        html = render_tag("{% record_type_badge record %}", record=StockRecord(record_type="OUT"))
+        html = render_template("{{ record_type_badge(record) }}", record=StockRecord(record_type="OUT"))
         self.assertIn("bg-danger-subtle", html)
         self.assertIn("出库", html)
 
     def test_adjust_badge(self):
-        html = render_tag("{% record_type_badge record %}", record=StockRecord(record_type="ADJUST"))
+        html = render_template("{{ record_type_badge(record) }}", record=StockRecord(record_type="ADJUST"))
         self.assertIn("bg-warning-subtle", html)
         self.assertIn("盘点调整", html)
 
     def test_unknown_type_falls_back(self):
-        html = render_tag("{% record_type_badge record %}", record=StockRecord(record_type="XX"))
+        html = render_template("{{ record_type_badge(record) }}", record=StockRecord(record_type="XX"))
         self.assertIn("bg-secondary-subtle", html)
 
 
@@ -132,27 +136,30 @@ class CategoryListViewTests(TestCase):
     def test_first_page_paginated(self):
         response = self.client.get(reverse("components:category_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context["is_paginated"])
-        self.assertEqual(len(response.context["categories"]), 20)
-        # 侧边栏由 {% nav_active 'components:category' %} 高亮
+        html = response.content.decode()
+        self.assertIn('共 <strong class="text-dark">25</strong> 条', html)
+        self.assertIn("1 / 2", html)
+        self.assertEqual(count_action(html, "编辑"), 20)
+        # 侧边栏由 nav_active('components:category') 高亮
         self.assertIn(b"nav-link active", response.content)
 
     def test_second_page_has_rest_and_keeps_query(self):
         response = self.client.get(reverse("components:category_list"), {"q": "品类"})
-        self.assertEqual(len(response.context["categories"]), 20)
+        self.assertEqual(count_action(response.content.decode(), "编辑"), 20)
 
         response = self.client.get(
             reverse("components:category_list"), {"q": "品类", "page": 2}
         )
-        self.assertEqual(len(response.context["categories"]), 5)
-        # 分页链接由 {% querystring %} 生成，应同时保留 q 与 page，且未被 HTML 转义
-        self.assertIn(b"&page=1", response.content)
-        self.assertNotIn(b"&amp;page=1", response.content)
-        self.assertIn(b"q=", response.content)
+        html = response.content.decode()
+        self.assertEqual(count_action(html, "编辑"), 5)
+        # 分页链接由 querystring() 生成，应同时保留 q 与 page，且未被 HTML 转义
+        self.assertIn("&page=1", html)
+        self.assertNotIn("&amp;page=1", html)
+        self.assertIn("q=", html)
 
     def test_invalid_page_falls_back_to_last(self):
         response = self.client.get(reverse("components:category_list"), {"page": 999})
-        self.assertEqual(response.context["page_obj"].number, 2)
+        self.assertIn("2 / 2", response.content.decode())
 
     def test_detail_page_renders_children_and_components(self):
         parent = Category.objects.create(name="电阻", code="RES-D")
@@ -174,6 +181,47 @@ class CategoryListViewTests(TestCase):
         )
         self.assertContains(response, "贴片电阻 1kΩ")
         self.assertContains(response, "bg-success-subtle")
+
+
+class CategoryFormViewTests(TestCase):
+    """品类新增 / 编辑 / 停用页面渲染（Jinja2 模板）。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            username="category-owner", password="test-pass-123"
+        )
+        cls.category = Category.objects.create(name="电阻", code="RES")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_create_page_renders(self):
+        response = self.client.get(reverse("components:category_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "新增品类")
+        self.assertContains(response, 'name="parent"')
+
+    def test_edit_page_renders_and_excludes_self(self):
+        parent = Category.objects.create(name="被动器件", code="PAS")
+        self.category.parent = parent
+        self.category.save(update_fields=["parent"])
+
+        response = self.client.get(
+            reverse("components:category_edit", args=[self.category.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "编辑品类")
+        self.assertContains(response, f'value="{parent.pk}"')
+        self.assertNotContains(response, f'value="{self.category.pk}"')
+
+    def test_delete_confirm_page_renders(self):
+        response = self.client.get(
+            reverse("components:category_delete", args=[self.category.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "确认删除")
+        self.assertContains(response, "电阻")
 
 
 class ComponentViewTests(TestCase):
@@ -239,7 +287,7 @@ class ComponentViewTests(TestCase):
     def test_list_shows_components_with_stock_badge(self):
         response = self.client.get(reverse("components:component_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["total_count"], 2)
+        self.assertContains(response, '共 <strong class="text-dark">2</strong> 个元件')
         self.assertContains(response, "贴片电阻 10kΩ")
         # 低库存（5 <= 20）应渲染红色徽章
         self.assertContains(response, "bg-danger-subtle")
@@ -247,27 +295,32 @@ class ComponentViewTests(TestCase):
 
     def test_list_search_matches_model_number(self):
         response = self.client.get(reverse("components:component_list"), {"q": "RC0603"})
-        names = [c.name for c in response.context["components"]]
-        self.assertEqual(names, ["贴片电阻 10kΩ"])
+        self.assertContains(response, "贴片电阻 10kΩ")
+        self.assertNotContains(response, "贴片电容 100nF")
 
     def test_list_filters_by_parent_category(self):
         response = self.client.get(
             reverse("components:component_list"), {"category": self.root.pk}
         )
-        names = [c.name for c in response.context["components"]]
-        self.assertEqual(names, ["贴片电阻 10kΩ"])
+        self.assertContains(response, "贴片电阻 10kΩ")
+        self.assertNotContains(response, "贴片电容 100nF")
+        # 品类下拉框回填当前筛选值（filters.category == c.pk|string）
+        self.assertEqual(response.content.decode().count("selected"), 1)
 
     def test_list_filters_low_stock_only(self):
         response = self.client.get(reverse("components:component_list"), {"low_stock": "1"})
-        self.assertEqual(response.context["total_count"], 1)
-        self.assertEqual(response.context["low_stock_count"], 1)
+        html = response.content.decode()
+        self.assertIn('共 <strong class="text-dark">1</strong> 个元件', html)
+        self.assertIn('低库存 <strong class="text-danger">1</strong> 个', html)
         self.assertNotContains(response, "贴片电容 100nF")
 
     def test_list_filters_mount_type(self):
         response = self.client.get(
             reverse("components:component_list"), {"mount_type": "THT"}
         )
-        self.assertEqual(response.context["total_count"], 0)
+        html = response.content.decode()
+        self.assertIn('共 <strong class="text-dark">0</strong> 个元件', html)
+        self.assertIn("没有符合条件的元件", html)
 
     def test_list_paginates_and_keeps_filters(self):
         Component.objects.bulk_create([
@@ -280,8 +333,9 @@ class ComponentViewTests(TestCase):
         response = self.client.get(
             reverse("components:component_list"), {"q": "批量", "page": 2}
         )
-        self.assertEqual(response.context["total_count"], 25)
-        self.assertEqual(len(response.context["components"]), 5)
+        html = response.content.decode()
+        self.assertIn('共 <strong class="text-dark">25</strong> 个元件', html)
+        self.assertEqual(count_action(html, "查看"), 5)
         # 分页链接保留搜索条件且未被 HTML 转义
         self.assertContains(response, "q=")
         self.assertNotContains(response, "&amp;page=1")
@@ -313,7 +367,8 @@ class ComponentViewTests(TestCase):
             self.form_data(model_number="RC0603-10K", manufacturer="Yageo"),
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("已存在", str(response.context["form"].non_field_errors()))
+        # 表单 non_field_errors 由 component_form.html 渲染在 alert 中
+        self.assertContains(response, "已存在")
         self.assertEqual(Component.objects.filter(model_number="RC0603-10K").count(), 1)
 
     def test_create_requires_name_and_model(self):
@@ -321,9 +376,10 @@ class ComponentViewTests(TestCase):
             reverse("components:component_create"), self.form_data(name="", model_number="")
         )
         self.assertEqual(response.status_code, 200)
-        form = response.context["form"]
-        self.assertIn("name", form.errors)
-        self.assertIn("model_number", form.errors)
+        # 名称与型号两个必填错误，由 form_field 宏渲染为两条 text-danger
+        html = response.content.decode()
+        self.assertEqual(html.count('class="text-danger small mt-1"'), 2)
+        self.assertEqual(Component.objects.count(), 2)
 
     def test_create_form_rejects_invalid_json_specs(self):
         response = self.client.post(
@@ -331,7 +387,8 @@ class ComponentViewTests(TestCase):
             self.form_data(extra_specs="{not json}"),
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("extra_specs", response.context["form"].errors)
+        self.assertContains(response, "请输入合法的 JSON")
+        self.assertFalse(Component.objects.filter(model_number="RC0603-4K7").exists())
 
     def test_edit_component(self):
         response = self.client.post(
@@ -350,7 +407,8 @@ class ComponentViewTests(TestCase):
             reverse("components:component_edit", args=[self.resistor.pk])
         )
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn("initial_stock", response.context["form"].fields)
+        self.assertNotContains(response, 'name="initial_stock"')
+        self.assertContains(response, "当前库存")
 
     def test_delete_is_soft_and_hides_from_list(self):
         response = self.client.post(
@@ -434,6 +492,8 @@ class ComponentViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "新增元件")
         self.assertContains(response, 'name="initial_stock"')
+        # {{ csrf_input }} 由 Django Jinja2 后端注入
+        self.assertContains(response, "csrfmiddlewaretoken")
 
     def test_delete_confirm_page_renders(self):
         response = self.client.get(
@@ -457,6 +517,6 @@ class ComponentViewTests(TestCase):
         self.assertContains(response, "登记出入库")
         self.assertContains(response, "首次入库")
         self.assertContains(response, "温度系数")
-        # 类型徽章由 {% record_type_badge %} 渲染
+        # 类型徽章由 record_type_badge() 渲染
         self.assertContains(response, "bg-success-subtle")
 
