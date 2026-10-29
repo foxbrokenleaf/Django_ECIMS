@@ -1,5 +1,6 @@
 """components 应用测试：Jinja2 模板助手 + 品类/元件管理视图。"""
 
+from decimal import Decimal
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
@@ -222,6 +223,37 @@ class CategoryFormViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "确认删除")
         self.assertContains(response, "电阻")
+
+    # ---- 类视图提交后统一 redirect() ----
+
+    def test_create_category_redirects_to_list(self):
+        response = self.client.post(
+            reverse("components:category_create"),
+            {"name": "电容", "code": "CAP", "description": ""},
+        )
+        self.assertRedirects(response, reverse("components:category_list"))
+        self.assertTrue(Category.objects.filter(name="电容", code="CAP").exists())
+
+    def test_edit_category_updates_and_redirects(self):
+        response = self.client.post(
+            reverse("components:category_edit", args=[self.category.pk]),
+            {"name": "电阻器", "code": "RES", "description": "改名"},
+        )
+        self.assertRedirects(response, reverse("components:category_list"))
+        self.category.refresh_from_db()
+        self.assertEqual(self.category.name, "电阻器")
+
+    def test_delete_category_is_soft_and_redirects(self):
+        response = self.client.post(
+            reverse("components:category_delete", args=[self.category.pk])
+        )
+        self.assertRedirects(response, reverse("components:category_list"))
+        self.category.refresh_from_db()
+        self.assertFalse(self.category.is_active)
+        # 列表只展示启用中的品类
+        self.assertFalse(
+            Category.objects.filter(is_active=True, pk=self.category.pk).exists()
+        )
 
 
 class ComponentViewTests(TestCase):
@@ -519,4 +551,254 @@ class ComponentViewTests(TestCase):
         self.assertContains(response, "温度系数")
         # 类型徽章由 record_type_badge() 渲染
         self.assertContains(response, "bg-success-subtle")
+
+
+class StockApplicationViewTests(TestCase):
+    """入库申请 / 使用申请：类视图读取 HttpRequest，提交后 redirect() 到回执页。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            username="applicant", password="test-pass-123"
+        )
+        cls.category = Category.objects.create(name="电阻", code="RES-APP")
+        cls.component = Component.objects.create(
+            name="贴片电阻 1kΩ", model_number="RC0603-1K", category=cls.category,
+            manufacturer="Yageo", unit="个", stock_quantity=50, safety_stock=10,
+            reference_price=Decimal("0.0100"), batch_number="B-OLD",
+            storage_location="A柜",
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def stock_in_url(self):
+        return reverse("components:stock_in_apply")
+
+    def usage_url(self):
+        return reverse("components:usage_apply")
+
+    # ---- 导航与登录限制 ----
+
+    def test_nav_links_point_to_application_pages(self):
+        response = self.client.get(reverse("components:component_list"))
+        html = response.content.decode()
+        self.assertIn(f'href="{self.stock_in_url()}"', html)
+        self.assertIn(f'href="{self.usage_url()}"', html)
+        self.assertIn("入库申请", html)
+        self.assertIn("使用申请", html)
+
+    def test_detail_page_links_application_with_component_param(self):
+        response = self.client.get(
+            reverse("components:component_detail", args=[self.component.pk])
+        )
+        html = response.content.decode()
+        self.assertIn(f'{self.stock_in_url()}?component={self.component.pk}"', html)
+        self.assertIn(f'{self.usage_url()}?component={self.component.pk}"', html)
+
+    def test_application_pages_require_login(self):
+        self.client.logout()
+        for url in (self.stock_in_url(), self.usage_url()):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("/admin/login/", response["Location"])
+
+    # ---- 任务一：HttpRequest ----
+
+    def test_stock_in_page_shows_request_info_and_prefills_from_get(self):
+        response = self.client.get(
+            self.stock_in_url(), {"component": self.component.pk, "quantity": 30}
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+
+        # request.method / path / get_full_path()
+        self.assertIn("request.method", html)
+        self.assertIn('border-primary-subtle">GET</span>', html)
+        self.assertIn("request.path", html)
+        self.assertIn(self.stock_in_url(), html)
+        self.assertIn("request.get_full_path()", html)
+        self.assertIn(f"component={self.component.pk}&amp;quantity=30", html)
+
+        # request.META：客户端 IP 与主机
+        self.assertIn("request.META['REMOTE_ADDR']", html)
+        self.assertIn("127.0.0.1", html)
+
+        # request.GET 参数表 + 表单初始值
+        self.assertIn("request.GET 查询参数", html)
+        self.assertIn('value="30"', html)
+        self.assertIn("贴片电阻 1kΩ", html)
+
+    def test_usage_page_has_no_prefill_when_query_empty(self):
+        response = self.client.get(self.usage_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "使用申请")
+        self.assertContains(response, "使用用途")
+        self.assertContains(response, "本次请求没有查询参数")
+        # Cookie 尚未写入时不应出现「上次申请单号」提示
+        self.assertNotContains(response, "上次使用申请单号")
+
+    # ---- 任务二：redirect() + 回执页 ----
+
+    def test_stock_in_post_redirects_to_result_page(self):
+        response = self.client.post(
+            f"{self.stock_in_url()}?component={self.component.pk}&quantity=20",
+            {
+                "component": self.component.pk,
+                "quantity": 20,
+                "unit_price": "0.0200",
+                "batch_number": "B2026",
+                "storage_location": "B柜-1层",
+                "remark": "采购到货",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        record = StockRecord.objects.get(
+            source_type=StockRecord.SourceType.STOCK_IN_APPLY
+        )
+        self.assertTrue(record.apply_no.startswith("RK-"))
+        self.assertEqual(record.record_type, StockRecord.RecordType.IN)
+        self.assertEqual(record.quantity, 20)
+        self.assertEqual(record.quantity_after, 70)
+        self.assertEqual(record.unit_price, Decimal("0.0200"))
+        self.assertEqual(record.batch_number, "B2026")
+        self.assertEqual(record.storage_location, "B柜-1层")
+        self.assertEqual(record.applicant, self.user)
+        self.assertEqual(record.operator, self.user)
+        self.assertEqual(record.remark, "采购到货")
+
+        self.component.refresh_from_db()
+        self.assertEqual(self.component.stock_quantity, 70)
+
+        # 提交成功后返回 302，Location 指向回执页
+        self.assertEqual(
+            response.url, reverse("components:apply_result", args=[record.pk])
+        )
+        # set_cookie() 写入最近一次申请单号
+        self.assertEqual(
+            response.cookies["ecims_last_stock_in_apply"].value, record.apply_no
+        )
+
+        # 跟随重定向：回执页由 ApplyResultView 渲染
+        result = self.client.get(response.url)
+        self.assertEqual(result.status_code, 200)
+        html = result.content.decode()
+        self.assertIn("入库申请已受理", html)
+        self.assertIn(record.apply_no, html)
+        self.assertIn("POST-Redirect-GET", html)
+        self.assertIn("302 Found", html)
+        self.assertIn("本次请求信息（HttpRequest）", html)
+        # 回执页本身是一次 GET 请求
+        self.assertIn('border-primary-subtle">GET</span>', html)
+        # 页面完整走完 base.html 的收尾标签
+        self.assertTrue(html.rstrip().endswith("</html>"))
+
+        # 横幅 → 申请单详情 → 处理流程，顺序正确
+        banner_at = html.index("入库申请已受理")
+        detail_at = html.index("申请单信息")
+        echo_at = html.index("本次处理流程（POST-Redirect-GET）")
+        self.assertLess(banner_at, detail_at)
+        self.assertLess(detail_at, echo_at)
+
+    def test_usage_post_uses_negative_quantity_and_default_price(self):
+        response = self.client.post(
+            self.usage_url(),
+            {"component": self.component.pk, "quantity": 15, "remark": "样机调试"},
+        )
+        self.assertEqual(response.status_code, 302)
+
+        record = StockRecord.objects.get(
+            source_type=StockRecord.SourceType.USAGE_APPLY
+        )
+        self.assertTrue(record.apply_no.startswith("SY-"))
+        self.assertEqual(record.record_type, StockRecord.RecordType.OUT)
+        self.assertEqual(record.quantity, -15)
+        self.assertEqual(record.quantity_after, 35)
+        self.assertEqual(record.unit_price, Decimal("0.0000"))
+        self.assertEqual(record.remark, "样机调试")
+
+        self.component.refresh_from_db()
+        self.assertEqual(self.component.stock_quantity, 35)
+        self.assertEqual(
+            response.cookies["ecims_last_usage_apply"].value, record.apply_no
+        )
+        self.assertEqual(
+            response.url, reverse("components:apply_result", args=[record.pk])
+        )
+
+        # 跟随重定向，回执页由 ApplyResultView 渲染
+        result = self.client.get(response.url)
+        self.assertEqual(result.status_code, 200)
+        self.assertContains(result, "使用申请已受理")
+        self.assertContains(result, record.apply_no)
+
+    def test_usage_rejects_insufficient_stock(self):
+        response = self.client.post(
+            self.usage_url(),
+            {"component": self.component.pk, "quantity": 100, "remark": "超量领用"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "库存不足")
+        self.assertFalse(
+            StockRecord.objects.filter(
+                source_type=StockRecord.SourceType.USAGE_APPLY
+            ).exists()
+        )
+        self.component.refresh_from_db()
+        self.assertEqual(self.component.stock_quantity, 50)
+
+    def test_usage_requires_remark(self):
+        response = self.client.post(
+            self.usage_url(), {"component": self.component.pk, "quantity": 1}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "这个字段是必填项。")
+        self.assertFalse(StockRecord.objects.exists())
+
+    def test_apply_result_page_requires_login_and_filters_source_type(self):
+        record = StockRecord.objects.create(
+            component=self.component, record_type=StockRecord.RecordType.IN,
+            quantity=5, quantity_after=55, apply_no="RK-20261029-0009",
+            source_type=StockRecord.SourceType.STOCK_IN_APPLY,
+        )
+        url = reverse("components:apply_result", args=[record.pk])
+
+        self.client.logout()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response["Location"])
+
+        self.client.force_login(self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "RK-20261029-0009")
+
+        # 普通出入库流水（无申请来源）不在回执页展示范围
+        manual = StockRecord.objects.create(
+            component=self.component, record_type=StockRecord.RecordType.IN,
+            quantity=1, quantity_after=56,
+        )
+        response = self.client.get(
+            reverse("components:apply_result", args=[manual.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_apply_page_shows_last_apply_no_from_cookie(self):
+        self.client.cookies["ecims_last_usage_apply"] = "SY-20261029-0007"
+        response = self.client.get(self.usage_url())
+        self.assertContains(response, "SY-20261029-0007")
+        self.assertContains(response, "ecims_last_usage_apply")
+
+    def test_apply_no_is_sequential_per_prefix_and_day(self):
+        first = StockRecord.next_apply_no("RK")
+        self.assertRegex(first, r"^RK-\d{8}-0001$")
+        StockRecord.objects.create(
+            component=self.component, record_type=StockRecord.RecordType.IN,
+            quantity=1, quantity_after=51, apply_no=first,
+        )
+        self.assertTrue(StockRecord.next_apply_no("RK").endswith("-0002"))
+        # 不同前缀互不影响
+        self.assertTrue(StockRecord.next_apply_no("SY").endswith("-0001"))
+
 

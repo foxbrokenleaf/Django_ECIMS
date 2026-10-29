@@ -43,9 +43,11 @@ class ComponentAdmin(admin.ModelAdmin):
 @admin.register(StockRecord)
 class StockRecordAdmin(admin.ModelAdmin):
     list_display = (
-        "component", "record_type", "quantity",
-        "quantity_after", "operator", "created_at",
+        "component", "record_type", "quantity", "quantity_after",
+        "apply_no", "applicant", "operator", "created_at",
     )
-    list_filter = ("record_type", "created_at")
-    search_fields = ("component__name", "component__model_number", "batch_number")
+    list_filter = ("record_type", "source_type", "created_at")
+    search_fields = (
+        "component__name", "component__model_number", "batch_number", "apply_no",
+    )
     readonly_fields = ("quantity_after", "created_at")

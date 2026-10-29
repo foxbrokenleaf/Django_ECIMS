@@ -41,7 +41,15 @@
                 <div class="mt-2">{{ stock_badge(component) }}</div>
             </div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url('components:stock_in_apply') }}?component={{ component.pk }}"
+               class="btn btn-light border text-success">
+                <i class="bi bi-arrow-down-circle me-1"></i> 入库申请
+            </a>
+            <a href="{{ url('components:usage_apply') }}?component={{ component.pk }}"
+               class="btn btn-light border text-primary">
+                <i class="bi bi-arrow-up-circle me-1"></i> 使用申请
+            </a>
             <a href="{{ url('components:component_edit', component.pk) }}" class="btn btn-primary shadow-sm">
                 <i class="bi bi-pencil me-1"></i> 编辑
             </a>
@@ -256,6 +264,7 @@
                     <thead>
                         <tr class="table-light">
                             <th class="ps-4">时间</th>
+                            <th>申请单号</th>
                             <th>类型</th>
                             <th class="text-end">数量</th>
                             <th class="text-end">变动后</th>
@@ -266,6 +275,13 @@
                         {% for r in records %}
                         <tr>
                             <td class="ps-4 small text-muted">{{ r.created_at|date("Y-m-d H:i") }}</td>
+                            <td class="small">
+                                {% if r.apply_no %}
+                                <code>{{ r.apply_no }}</code>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
                             <td>{{ record_type_badge(r) }}</td>
                             <td class="text-end small {% if r.quantity < 0 %}text-danger{% else %}text-success{% endif %}">
                                 {% if r.quantity > 0 %}+{% endif %}{{ r.quantity }}
@@ -280,7 +296,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4 small">
+                            <td colspan="6" class="text-center text-muted py-4 small">
                                 暂无出入库记录，左侧登记第一笔吧
                             </td>
                         </tr>

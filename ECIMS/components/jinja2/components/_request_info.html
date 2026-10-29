@@ -1,0 +1,64 @@
+{# 任务一：HttpRequest 关键信息卡片，可被申请页与回执页复用 #}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 fw-semibold">
+        <i class="bi bi-activity text-primary me-2"></i>本次请求信息（HttpRequest）
+    </div>
+    <div class="card-body py-3">
+        <dl class="row small mb-0">
+            <dt class="col-5 text-muted fw-normal">request.method</dt>
+            <dd class="col-7 mb-2">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ request_info.method }}</span>
+            </dd>
+
+            <dt class="col-5 text-muted fw-normal">request.path</dt>
+            <dd class="col-7 mb-2"><code class="text-break">{{ request_info.path }}</code></dd>
+
+            <dt class="col-5 text-muted fw-normal">request.get_full_path()</dt>
+            <dd class="col-7 mb-2"><code class="text-break">{{ request_info.full_path }}</code></dd>
+
+            <dt class="col-5 text-muted fw-normal">request.META['REMOTE_ADDR']</dt>
+            <dd class="col-7 mb-2"><code>{{ request_info.client_ip|default('未知', true) }}</code></dd>
+
+            <dt class="col-5 text-muted fw-normal">request.META['HTTP_HOST']</dt>
+            <dd class="col-7 mb-2"><code>{{ request_info.host|default('—', true) }}</code></dd>
+
+            <dt class="col-5 text-muted fw-normal">request.META['HTTP_USER_AGENT']</dt>
+            <dd class="col-7 mb-2 text-break">{{ request_info.user_agent|default('—', true) }}</dd>
+
+            <dt class="col-5 text-muted fw-normal">request.scheme / is_secure()</dt>
+            <dd class="col-7 mb-2">
+                <code>{{ request_info.scheme }}</code> ·
+                {{ 'HTTPS' if request_info.is_secure else '未加密' }}
+            </dd>
+
+            <dt class="col-5 text-muted fw-normal">当前用户 / 服务器时间</dt>
+            <dd class="col-7 mb-0">{{ request_info.user }} · {{ request_info.server_time|date("Y-m-d H:i:s") }}</dd>
+        </dl>
+    </div>
+    <div class="card-header bg-white py-2 small fw-semibold border-top">
+        request.GET 查询参数（共 {{ request_info.query_params|length }} 项，Cookie {{ request_info.cookie_count }} 个）
+    </div>
+    <div class="card-body py-2">
+        {% if request_info.query_params %}
+        <table class="table table-sm mb-0">
+            <tbody>
+            {% for key, values in request_info.query_params %}
+            <tr>
+                <td class="text-muted small" style="width: 45%;"><code>{{ key }}</code></td>
+                <td class="small">
+                    {% for value in values %}
+                    <span class="badge bg-light text-dark border me-1">{{ value }}</span>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted small mb-0">
+            本次请求没有查询参数，可在地址后追加
+            <code>?component=1&amp;quantity=10</code> 体验 request.GET 取值。
+        </p>
+        {% endif %}
+    </div>
+</div>

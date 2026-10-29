@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 from decimal import Decimal
 
 User = get_user_model()
@@ -157,6 +158,12 @@ class StockRecord(models.Model):
         ADJUST = "ADJUST", "盘点调整"
         RETURN = "RETURN", "退料"
 
+    class SourceType(models.TextChoices):
+        """流水来源：用于区分「入库申请」「使用申请」等业务单据。"""
+
+        STOCK_IN_APPLY = "STOCK_IN_APPLY", "入库申请"
+        USAGE_APPLY = "USAGE_APPLY", "使用申请"
+
     component = models.ForeignKey(
         Component,
         verbose_name="元件",
@@ -181,6 +188,16 @@ class StockRecord(models.Model):
     source_type = models.CharField("来源类型", max_length=50, blank=True)
     source_id = models.PositiveIntegerField("来源ID", null=True, blank=True)
 
+    # 申请信息：「入库申请」「使用申请」等业务单据
+    apply_no = models.CharField(
+        "申请单号", max_length=32, blank=True, db_index=True,
+        help_text="形如 RK-20261029-0001（入库）/ SY-20261029-0001（使用）",
+    )
+    applicant = models.ForeignKey(
+        User, verbose_name="申请人", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="stock_applications",
+    )
+
     remark = models.TextField("备注", blank=True)
     operator = models.ForeignKey(
         User, verbose_name="操作人", on_delete=models.SET_NULL,
@@ -201,3 +218,14 @@ class StockRecord(models.Model):
     def __str__(self):
         sign = "+" if self.quantity >= 0 else ""
         return f"{self.component} {sign}{self.quantity}"
+
+    @classmethod
+    def next_apply_no(cls, prefix="RK"):
+        """按天生成申请单号，如 RK-20261029-0001。
+
+        prefix：RK=入库申请（ru ku），SY=使用申请（shi yong）。
+        单号仅用于页面展示与追踪，未加唯一约束，便于教学演示。
+        """
+        head = f"{prefix}-{timezone.now():%Y%m%d}-"
+        today_count = cls.objects.filter(apply_no__startswith=head).count()
+        return f"{head}{today_count + 1:04d}"

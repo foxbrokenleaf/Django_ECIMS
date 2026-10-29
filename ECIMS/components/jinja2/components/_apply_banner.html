@@ -1,0 +1,17 @@
+{# 申请结果横幅：由 ApplyResultView 通过模板渲染 #}
+<div class="alert alert-success border-0 shadow-sm d-flex align-items-start gap-3 mb-4">
+    <i class="bi bi-check-circle-fill fs-4"></i>
+    <div class="flex-grow-1">
+        <div class="fw-semibold">{{ page_title }}已受理</div>
+        <div class="small mt-1">
+            申请单号 <code>{{ record.apply_no }}</code> ·
+            {{ record.get_record_type_display() }}
+            {{ record.quantity|abs }} {{ record.component.unit }} ·
+            变动后库存 {{ record.quantity_after }} {{ record.component.unit }}
+        </div>
+    </div>
+    <span class="badge bg-success-subtle text-success border border-success-subtle align-self-center">
+        已入账
+    </span>
+</div>
+

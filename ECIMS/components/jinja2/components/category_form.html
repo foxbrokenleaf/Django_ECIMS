@@ -1,33 +1,55 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>{% if action == 'edit' %}编辑{% else %}新增{% endif %}品类</h2>
+{% from "components/_form_field.html" import form_field %}
 
-<form method="post">
-  {{ csrf_input }}
-  {% if category %}
-    <input type="text" name="name" value="{{ category.name }}" placeholder="名称" required>
-    <input type="text" name="code" value="{{ category.code }}" placeholder="编码">
-    <textarea name="description">{{ category.description }}</textarea>
-    <select name="parent">
-      <option value="">— 无上级 —</option>
-      {% for p in parents %}
-        <option value="{{ p.pk }}" {% if category.parent_id == p.pk %}selected{% endif %}>
-          {{ p.full_path }}
-        </option>
-      {% endfor %}
-    </select>
-  {% else %}
-    <input type="text" name="name" placeholder="名称" required>
-    <input type="text" name="code" placeholder="编码">
-    <textarea name="description" placeholder="描述"></textarea>
-    <select name="parent">
-      <option value="">— 无上级 —</option>
-      {% for p in parents %}
-        <option value="{{ p.pk }}">{{ p.full_path }}</option>
-      {% endfor %}
-    </select>
-  {% endif %}
-  <button type="submit">保存</button>
-  <a href="{{ url('components:category_list') }}">取消</a>
-</form>
+{% block title %}{% if action == 'edit' %}编辑品类{% else %}新增品类{% endif %} · ECIMS{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold">
+            <i class="bi bi-diagram-3 text-primary me-2"></i>
+            {% if action == 'edit' %}编辑品类{% else %}新增品类{% endif %}
+        </h1>
+        <p class="text-muted small mb-0">
+            {% if action == 'edit' %}
+                {{ category.full_path }}
+            {% else %}
+                维护品类名称、编码与上级品类，支持多级嵌套
+            {% endif %}
+        </p>
+    </div>
+    <a href="{{ url('components:category_list') }}" class="btn btn-light border">
+        <i class="bi bi-arrow-left me-1"></i> 返回品类列表
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {{ csrf_input }}
+
+            {% if form.non_field_errors() %}
+            <div class="alert alert-danger py-2">
+                {% for error in form.non_field_errors() %}
+                <div class="small">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row">
+                <div class="col-md-6 mb-3">{{ form_field(form.name) }}</div>
+                <div class="col-md-6 mb-3">{{ form_field(form.code) }}</div>
+                <div class="col-md-6 mb-3">{{ form_field(form.parent) }}</div>
+                <div class="col-12 mb-0">{{ form_field(form.description) }}</div>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary shadow-sm">
+                    <i class="bi bi-check-lg me-1"></i> 保存
+                </button>
+                <a href="{{ url('components:category_list') }}" class="btn btn-light border">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}回执 · ECIMS{% endblock %}
+
+{% block content %}
+<!-- 结果横幅由 ApplyResultView 渲染 -->
+{% include "components/_apply_banner.html" %}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold">
+            <i class="bi {{ page_icon }} text-primary me-2"></i>{{ page_title }}回执
+        </h1>
+        <p class="text-muted small mb-0">
+            申请已写入出入库流水，本页由 <code>ApplyResultView</code> 渲染，
+            同时展示本次 HttpRequest 的关键信息
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url('components:component_detail', component.pk) }}" class="btn btn-light border">
+            <i class="bi bi-box-seam me-1"></i> 查看元件
+        </a>
+        <a href="{{ url('components:' ~ ('stock_in_apply' if mode == 'in' else 'usage_apply')) }}"
+           class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-circle me-1"></i> 继续申请
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-receipt text-primary me-2"></i>申请单信息
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small" style="width: 150px;">申请单号</th>
+                        <td><code>{{ record.apply_no }}</code></td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">流水类型</th>
+                        <td>{{ record_type_badge(record) }}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">申请元件</th>
+                        <td>
+                            {{ record.component.name }}
+                            <code class="small">{{ record.component.model_number }}</code>
+                            <span class="badge bg-light text-dark border">{{ record.component.category.name }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">数量变动</th>
+                        <td>
+                            {{ record.quantity|abs }} {{ record.component.unit }}
+                            <span class="text-muted small">（流水记录为 {{ record.quantity }}）</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">变动后库存</th>
+                        <td>{{ stock_badge(record.component) }}</td>
+                    </tr>
+                    {% if mode == 'in' %}
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">入库单价</th>
+                        <td>¥ {{ record.unit_price|floatformat(4) }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">批次 / 位置</th>
+                        <td>
+                            {{ record.batch_number|default('—', true) }} ·
+                            {{ record.storage_location|default('—', true) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">申请人 / 操作人</th>
+                        <td>
+                            {{ record.applicant.username|default('—', true) }} /
+                            {{ record.operator.username|default('—', true) }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">来源类型</th>
+                        <td><code>{{ record.source_type }}</code></td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">备注</th>
+                        <td>{{ record.remark|default('—', true) }}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-4 text-muted fw-normal small">受理时间</th>
+                        <td>{{ record.created_at|date("Y-m-d H:i:s") }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="alert alert-light border small mt-3 mb-0">
+            <div class="fw-semibold mb-1">
+                <i class="bi bi-code-slash text-primary me-1"></i>这一页是怎么生成的
+            </div>
+            <ol class="text-muted mb-0 ps-3">
+                <li><code>StockInApplyView</code> / <code>UsageApplyView</code> 继承 <code>FormView</code>，校验申请表单；</li>
+                <li>写入 <code>StockRecord</code> 后调用 <code>redirect("components:apply_result", pk=...)</code> 返回 302；</li>
+                <li>浏览器 GET 回执地址，由 <code>ApplyResultView</code>（<code>DetailView</code>）渲染本页；</li>
+                <li>申请单号通过 <code>response.set_cookie()</code> 记录，下次申请页可读取；</li>
+                <li>页面输出全部交给模板，不再手工拼接 <code>HttpResponse</code>。</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        {% include "components/_request_info.html" %}
+    </div>
+</div>
+{% include "components/_apply_echo.html" %}
+{% endblock %}

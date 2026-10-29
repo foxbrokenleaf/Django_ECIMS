@@ -22,6 +22,25 @@ class BootstrapFormMixin:
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {css}".strip()
 
 
+class CategoryForm(BootstrapFormMixin, forms.ModelForm):
+    """品类新增/编辑表单；编辑时上级品类不能选择自己。"""
+
+    class Meta:
+        model = Category
+        fields = ("name", "code", "parent", "description")
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        parents = Category.objects.filter(is_active=True)
+        if self.instance.pk:
+            parents = parents.exclude(pk=self.instance.pk)
+        self.fields["parent"].queryset = parents
+        self.fields["parent"].empty_label = "— 无上级品类 —"
+
+
 class ComponentForm(BootstrapFormMixin, forms.ModelForm):
     """元件新增/编辑表单；库存数量只能通过出入库流水变更。"""
 
@@ -128,3 +147,97 @@ class StockAdjustForm(BootstrapFormMixin, forms.Form):
         if self.cleaned_data["record_type"] == StockRecord.RecordType.OUT:
             return -quantity
         return quantity
+
+
+# ---------------------------------------------------------------- 申请表单
+
+
+class ApplicationFormMixin(BootstrapFormMixin):
+    """入库/使用申请表单的公共部分：只能选择启用中的元件。
+
+    下拉数据在 __init__ 中重新查询，避免类属性上的 QuerySet 缓存导致
+    新增元件后下拉框不刷新。
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["component"].queryset = (
+            Component.objects.filter(is_active=True)
+            .select_related("category")
+            .order_by("name", "model_number")
+        )
+
+
+class StockInApplyForm(ApplicationFormMixin, forms.Form):
+    """入库申请：采购/退料入库，提交后生成一条入库流水。"""
+
+    component = forms.ModelChoiceField(
+        label="申请元件",
+        queryset=Component.objects.none(),
+        empty_label="— 请选择元件 —",
+    )
+    quantity = forms.IntegerField(
+        label="入库数量",
+        min_value=1,
+        initial=1,
+        help_text="填写正整数，提交后立即增加到当前库存",
+    )
+    unit_price = forms.DecimalField(
+        label="入库单价",
+        max_digits=12,
+        decimal_places=4,
+        required=False,
+        min_value=0,
+        help_text="留空则沿用元件参考单价",
+    )
+    batch_number = forms.CharField(
+        label="批次号",
+        max_length=100,
+        required=False,
+        help_text="留空则沿用元件当前批次",
+    )
+    storage_location = forms.CharField(
+        label="存放位置",
+        max_length=100,
+        required=False,
+        help_text="留空则沿用元件当前存放位置",
+    )
+    remark = forms.CharField(
+        label="申请说明",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text="如采购单号、供应商、退料人等",
+    )
+
+
+class UsageApplyForm(ApplicationFormMixin, forms.Form):
+    """使用申请：领用元件，提交后生成一条出库流水。"""
+
+    component = forms.ModelChoiceField(
+        label="申请元件",
+        queryset=Component.objects.none(),
+        empty_label="— 请选择元件 —",
+    )
+    quantity = forms.IntegerField(
+        label="领用数量",
+        min_value=1,
+        initial=1,
+        help_text="不能超过元件当前库存",
+    )
+    remark = forms.CharField(
+        label="使用用途",
+        max_length=200,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text="如项目名称、调试用途、领用人等",
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        component = cleaned.get("component")
+        quantity = cleaned.get("quantity")
+        if component and quantity and quantity > component.stock_quantity:
+            raise ValidationError(
+                f"库存不足：{component.name} 当前库存 {component.stock_quantity} "
+                f"{component.unit}，本次申请 {quantity} {component.unit}。"
+            )
+        return cleaned

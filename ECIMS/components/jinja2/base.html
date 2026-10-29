@@ -143,12 +143,14 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link {{ nav_active('components:stock_in_apply') }}"
+                       href="{{ url('components:stock_in_apply') }}">
                         <i class="bi bi-arrow-down-circle"></i> 入库申请
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link {{ nav_active('components:usage_apply') }}"
+                       href="{{ url('components:usage_apply') }}">
                         <i class="bi bi-arrow-up-circle"></i> 使用申请
                     </a>
                 </li>
