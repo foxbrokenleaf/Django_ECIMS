@@ -282,7 +282,7 @@ class ComponentViewTests(TestCase):
         self.client.logout()
         response = self.client.get(reverse("components:component_list"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin/login/", response["Location"])
+        self.assertIn("/accounts/login/", response["Location"])
 
     def test_list_shows_components_with_stock_badge(self):
         response = self.client.get(reverse("components:component_list"))

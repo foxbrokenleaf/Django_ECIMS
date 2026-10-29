@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "accounts/_form_field.html" import form_field %}
+
+{% block title %}
+    {% if mode == 'superuser' %}创建超级用户{% else %}创建普通用户{% endif %} · ECIMS
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold">
+            <i class="bi bi-person-plus text-primary me-2"></i>
+            {% if mode == 'superuser' %}创建超级用户{% else %}创建普通用户{% endif %}
+        </h1>
+        <p class="text-muted small mb-0">
+            {% if mode == 'superuser' %}
+                视图调用 User.objects.create_superuser()，新账号同时拥有 is_staff 与 is_superuser 权限
+            {% else %}
+                视图调用 User.objects.create_user()，新账号为普通用户
+            {% endif %}
+        </p>
+    </div>
+    <a href="{% if user.is_authenticated %}{{ url('accounts:dashboard') }}{% else %}{{ url('accounts:login') }}{% endif %}"
+       class="btn btn-light border">
+        <i class="bi bi-arrow-left me-1"></i> 返回
+    </a>
+</div>
+
+{% if mode == 'superuser' %}
+<div class="alert alert-warning small">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    超级用户拥有系统全部权限，请仅授予可信人员。第一个超级用户请使用
+    <code>python manage.py createsuperuser</code> 命令创建。
+</div>
+{% endif %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+
+                {% if form.non_field_errors() %}
+                    <div class="alert alert-danger py-2 small">
+                        {% for error in form.non_field_errors() %}<div>{{ error }}</div>{% endfor %}
+                    </div>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {{ csrf_input }}
+
+                    <div class="mb-3">
+                        {{ form_field(form.username) }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form_field(form.email) }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form_field(form.password1) }}
+                    </div>
+                    <div class="mb-4">
+                        {{ form_field(form.password2) }}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary shadow-sm">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {% if mode == 'superuser' %}创建超级用户{% else %}创建普通用户{% endif %}
+                        </button>
+                        <a href="{{ url('accounts:login') }}" class="btn btn-light border">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

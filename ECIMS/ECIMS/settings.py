@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 
+from django.contrib.messages import constants as message_constants
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,6 +33,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "accounts.apps.AccountsConfig",
     "components.apps.ComponentsConfig",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -139,9 +142,13 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# 登录相关：本项目复用 admin 登录页
-LOGIN_URL = "/admin/login/"
+# 登录相关：未登录访问 @login_required 视图时跳转到 accounts 登录页
+LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/components/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# messages.error 默认标签是 error，Bootstrap 5 使用 danger 样式
+MESSAGE_TAGS = {message_constants.ERROR: "danger"}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

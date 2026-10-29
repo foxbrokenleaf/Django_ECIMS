@@ -105,10 +105,11 @@
                             <i class="bi bi-person-circle"></i> {{ user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url('accounts:dashboard') }}">个人中心</a></li>
                             <li><a class="dropdown-item" href="/admin/">后台管理</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <form method="post" action="{{ url('admin:logout') }}" class="d-inline">
+                                <form method="post" action="{{ url('accounts:logout') }}" class="d-inline">
                                     {{ csrf_input }}
                                     <button class="dropdown-item" type="submit">退出登录</button>
                                 </form>
@@ -117,7 +118,7 @@
                     </li>
                 {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="/admin/login/">登录</a>
+                        <a class="nav-link" href="{{ url('accounts:login') }}">登录</a>
                     </li>
                 {% endif %}
             </ul>
@@ -140,6 +141,12 @@
                     <a class="nav-link {{ nav_active('components:component') }}"
                        href="{{ url('components:component_list') }}">
                         <i class="bi bi-box-seam"></i> 元件管理
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ nav_active('accounts:dashboard', 'accounts:user_create', 'accounts:superuser_create') }}"
+                       href="{{ url('accounts:dashboard') }}">
+                        <i class="bi bi-people"></i> 用户中心
                     </a>
                 </li>
                 <li class="nav-item">

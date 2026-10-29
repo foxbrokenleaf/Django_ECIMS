@@ -27,6 +27,7 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="components:component_list", permanent=False),
         name="home",
     ),
+    path("accounts/", include("accounts.urls")),
     path("components/", include("components.urls")),
     path("admin/", admin.site.urls),
 ]
