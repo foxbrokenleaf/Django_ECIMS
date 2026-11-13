@@ -29,6 +29,7 @@ urlpatterns = [
     ),
     path("accounts/", include("accounts.urls")),
     path("components/", include("components.urls")),
+    path("requisitions/", include("requisitions.urls")),
     path("admin/", admin.site.urls),
 ]
 
