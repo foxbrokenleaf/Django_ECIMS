@@ -28,6 +28,11 @@
         </p>
     </div>
     <div class="d-flex gap-2">
+        {% set export_query = querystring(page=None) %}
+        <a href="{{ url('labels:export_components') }}{% if export_query %}?{{ export_query }}{% endif %}"
+           class="btn btn-outline-success" title="导出当前筛选条件下的全部元件（不受分页限制）">
+            <i class="bi bi-file-earmark-excel me-1"></i> 导出 Excel
+        </a>
         <a href="{{ url('labels:template_list') }}" class="btn btn-light border">
             <i class="bi bi-sliders me-1"></i> 标签模板
         </a>

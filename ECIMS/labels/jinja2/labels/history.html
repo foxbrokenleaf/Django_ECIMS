@@ -16,9 +16,16 @@
             共 {{ total_count }} 条记录{% if not user.is_staff %}（仅显示本人操作）{% endif %}。
         </p>
     </div>
-    <a href="{{ url('labels:home') }}" class="btn btn-light border">
-        <i class="bi bi-arrow-left me-1"></i> 返回标签打印
-    </a>
+    <div class="d-flex gap-2">
+        {% set export_query = querystring(page=None) %}
+        <a href="{{ url('labels:export_history') }}{% if export_query %}?{{ export_query }}{% endif %}"
+           class="btn btn-outline-success" title="按当前筛选条件导出打印记录">
+            <i class="bi bi-file-earmark-excel me-1"></i> 导出 Excel
+        </a>
+        <a href="{{ url('labels:home') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-left me-1"></i> 返回标签打印
+        </a>
+    </div>
 </div>
 
 <div class="card border-0 shadow-sm mb-3">

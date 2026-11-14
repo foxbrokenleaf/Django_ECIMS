@@ -6,7 +6,8 @@
 2. 勾选元件后 ``label_print`` 统一调用 ``services.print_labels``，
    每个元件写入一条 ``LabelPrintRecord``；
 3. ``label_preview`` 用与真实打印完全相同的版面数据做页面预览；
-4. ``scan_component`` 供手机扫标签二维码后按 UID 定位元件。
+4. ``scan_component`` 供手机扫标签二维码后按 UID 定位元件；
+5. ``export_components`` / ``export_history`` 按当前筛选条件导出 Excel。
 """
 
 import uuid
@@ -22,6 +23,12 @@ from django.views.decorators.http import require_POST
 
 from components.models import Category, Component
 
+from .exports import (
+    build_component_workbook,
+    build_print_record_workbook,
+    export_filename,
+    xlsx_response,
+)
 from .forms import LabelPrintSettingsForm, LabelTemplateForm
 from .models import LabelPrintRecord, LabelTemplate
 from .services import (
@@ -91,6 +98,32 @@ def _filter_components(request):
     }
 
 
+def _filter_print_records(request):
+    """按 GET 参数筛选打印记录，返回（queryset, 筛选条件）。
+
+    普通用户只能看到自己的记录，管理员可查看全部；列表页与 Excel 导出
+    共用同一套筛选逻辑，保证导出的数据与页面显示一致。
+    """
+    qs = LabelPrintRecord.objects.select_related("component", "template", "operator")
+    if not request.user.is_staff:
+        qs = qs.filter(operator=request.user)
+
+    keyword = (request.GET.get("q") or "").strip()
+    if keyword:
+        qs = qs.filter(
+            Q(component_name__icontains=keyword)
+            | Q(component_model__icontains=keyword)
+            | Q(printer_name__icontains=keyword)
+            | Q(template_name__icontains=keyword)
+        )
+
+    status = (request.GET.get("status") or "").strip()
+    if status in LabelPrintRecord.Status.values:
+        qs = qs.filter(status=status)
+
+    return qs, {"q": keyword, "status": status}
+
+
 @login_required
 def home(request):
     """标签打印主页：筛选库存元件、选择模板/打印机。"""
@@ -124,6 +157,14 @@ def home(request):
         "printer_info": printer_info,
         "max_labels": MAX_LABELS,
     })
+
+
+@login_required
+def export_components(request):
+    """按当前筛选条件导出元件标签清单为 Excel（不受分页限制）。"""
+    qs, _ = _filter_components(request)
+    workbook = build_component_workbook(qs)
+    return xlsx_response(workbook, export_filename("元件标签清单"))
 
 
 @login_required
@@ -251,32 +292,24 @@ def label_preview(request, pk):
 @login_required
 def label_history(request):
     """打印历史：普通用户只看自己的记录，管理员可查看全部。"""
-    qs = LabelPrintRecord.objects.select_related("component", "template", "operator")
-    if not request.user.is_staff:
-        qs = qs.filter(operator=request.user)
-
-    keyword = (request.GET.get("q") or "").strip()
-    if keyword:
-        qs = qs.filter(
-            Q(component_name__icontains=keyword)
-            | Q(component_model__icontains=keyword)
-            | Q(printer_name__icontains=keyword)
-            | Q(template_name__icontains=keyword)
-        )
-
-    status = (request.GET.get("status") or "").strip()
-    if status in LabelPrintRecord.Status.values:
-        qs = qs.filter(status=status)
-
+    qs, filters = _filter_print_records(request)
     page_obj = Paginator(qs, PAGE_SIZE).get_page(request.GET.get("page"))
     return render(request, "labels/history.html", {
         "records": page_obj,
         "page_obj": page_obj,
         "is_paginated": page_obj.has_other_pages(),
         "total_count": page_obj.paginator.count,
-        "filters": {"q": keyword, "status": status},
+        "filters": filters,
         "status_choices": LabelPrintRecord.Status.choices,
     })
+
+
+@login_required
+def export_history(request):
+    """按当前筛选条件导出打印记录为 Excel（普通用户仅导出本人记录）。"""
+    qs, _ = _filter_print_records(request)
+    workbook = build_print_record_workbook(qs)
+    return xlsx_response(workbook, export_filename("标签打印记录"))
 
 
 @login_required

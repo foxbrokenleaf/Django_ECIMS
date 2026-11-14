@@ -3,5 +3,8 @@ Django==5.0
 Jinja2==3.1.6
 Pillow==12.3.0
 
+# Excel 导出（标签打印元件清单 / 打印记录）
+openpyxl==3.1.5
+
 # 标签打印 SDK：由标签打印机厂商提供 wheel 安装（如 dtpweb-2.5.20250212-*.whl）
 dtpweb==2.5.20250212

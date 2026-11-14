@@ -3,15 +3,19 @@
 import sys
 import types
 import uuid
+from datetime import datetime
 from decimal import Decimal
+from io import BytesIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from components.models import Category, Component
 
+from .exports import XLSX_CONTENT_TYPE
 from .forms import LabelPrintSettingsForm
 from .models import LabelPrintRecord, LabelTemplate
 from .services import (
@@ -653,6 +657,155 @@ class LabelViewTests(TestCase):
         self.template.refresh_from_db()
         self.assertFalse(self.template.is_active)
         self.assertFalse(self.template.is_default)
+
+
+class LabelExportTests(TestCase):
+    """Excel 导出：登录校验、筛选条件、权限范围与文件格式。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name="电阻", code="RES-EXP")
+        cls.component = Component.objects.create(
+            name="贴片电阻", model_number="RC0603-10K-EXP", category=cls.category,
+            value="10kΩ", package="0603", stock_quantity=100, safety_stock=20,
+            unit="个", storage_location="A柜-1层", batch_number="B202401",
+        )
+        cls.other_component = Component.objects.create(
+            name="别人的元件", model_number="OTHER-EXP-1", category=cls.category,
+            stock_quantity=5, safety_stock=20,
+        )
+        cls.template = LabelTemplate.objects.create(
+            name="导出模板", width_mm=40, height_mm=30, is_default=True,
+        )
+
+    def setUp(self):
+        self.user = User.objects.create_user("exporter", password="pw12345678")
+        self.admin = User.objects.create_superuser(
+            "export-admin", "export-admin@example.com", "pw12345678",
+        )
+        LabelPrintRecord.objects.create(
+            batch_id=uuid.uuid4(),
+            component=self.component,
+            component_name=self.component.name,
+            component_model=self.component.model_number,
+            component_uid=self.component.uid,
+            template=self.template,
+            template_name=self.template.name,
+            copies=2,
+            printer_name="测试打印机",
+            status=LabelPrintRecord.Status.SUCCESS,
+            message="打印成功",
+            operator=self.user,
+        )
+        LabelPrintRecord.objects.create(
+            batch_id=uuid.uuid4(),
+            component=self.other_component,
+            component_name=self.other_component.name,
+            component_model=self.other_component.model_number,
+            component_uid=self.other_component.uid,
+            template=self.template,
+            template_name=self.template.name,
+            copies=1,
+            printer_name="测试打印机",
+            status=LabelPrintRecord.Status.FAILED,
+            message="缺纸",
+            operator=self.admin,
+        )
+
+    def login(self, user=None):
+        self.client.force_login(user or self.user)
+
+    @staticmethod
+    def load_sheet(response):
+        return load_workbook(BytesIO(response.content)).active
+
+    def test_component_export_requires_login(self):
+        response = self.client.get(reverse("labels:export_components"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
+    def test_component_export_returns_filtered_workbook(self):
+        self.login()
+        response = self.client.get(
+            reverse("labels:export_components"), {"q": "RC0603-10K-EXP"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], XLSX_CONTENT_TYPE)
+        self.assertIn("attachment;", response["Content-Disposition"])
+        self.assertIn("filename*=UTF-8''", response["Content-Disposition"])
+
+        sheet = self.load_sheet(response)
+        self.assertEqual(sheet.title, "元件标签清单")
+        headers = [cell.value for cell in sheet[1]]
+        self.assertEqual(headers[0], "序号")
+        self.assertIn("元件名称", headers)
+        self.assertIn("元件UID", headers)
+        self.assertEqual(sheet.freeze_panes, "A2")
+        self.assertIsNotNone(sheet.auto_filter.ref)
+
+        rows = list(sheet.iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], "贴片电阻")
+        self.assertEqual(rows[0][2], "RC0603-10K-EXP")
+        self.assertEqual(rows[0][11], "否")
+
+    def test_component_export_honours_low_stock_filter(self):
+        self.login()
+        response = self.client.get(
+            reverse("labels:export_components"), {"low_stock": "1"},
+        )
+        rows = list(self.load_sheet(response).iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], "别人的元件")
+        self.assertEqual(rows[0][11], "是")
+
+    def test_history_export_requires_login(self):
+        response = self.client.get(reverse("labels:export_history"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
+    def test_history_export_only_contains_own_records_for_normal_user(self):
+        self.login()
+        response = self.client.get(reverse("labels:export_history"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], XLSX_CONTENT_TYPE)
+
+        sheet = self.load_sheet(response)
+        self.assertEqual(sheet.title, "标签打印记录")
+        rows = list(sheet.iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][3], "贴片电阻")
+        self.assertEqual(rows[0][9], "打印成功")
+        self.assertEqual(rows[0][10], "exporter")
+        self.assertIsInstance(rows[0][1], datetime)
+
+    def test_history_export_for_staff_contains_all_records(self):
+        self.login(self.admin)
+        response = self.client.get(reverse("labels:export_history"))
+        rows = list(self.load_sheet(response).iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 2)
+
+    def test_history_export_applies_status_filter(self):
+        self.login(self.admin)
+        response = self.client.get(
+            reverse("labels:export_history"), {"status": "failed"},
+        )
+        rows = list(self.load_sheet(response).iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][3], "别人的元件")
+        self.assertEqual(rows[0][9], "打印失败")
+
+    def test_pages_show_export_buttons(self):
+        self.login()
+        home = self.client.get(reverse("labels:home"), {"q": "RC0603"})
+        self.assertContains(home, "导出 Excel")
+        self.assertContains(home, reverse("labels:export_components"))
+        self.assertContains(home, "?q=RC0603")
+
+        history = self.client.get(reverse("labels:history"), {"status": "success"})
+        self.assertContains(history, "导出 Excel")
+        self.assertContains(history, reverse("labels:export_history"))
+        self.assertContains(history, "?status=success")
 
 
 
