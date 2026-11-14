@@ -65,6 +65,12 @@
                         <td class="small text-nowrap">
                             {{ t.width_mm }}×{{ t.height_mm }} mm
                             <div class="text-muted" style="font-size: 11.5px;">字体：{{ t.font_name }}</div>
+                            <div class="text-muted" style="font-size: 11.5px;">
+                                边距 {{ t.margin_mm }} · 行距 {{ t.line_spacing_mm }} mm
+                            </div>
+                            <div class="text-muted" style="font-size: 11.5px;">
+                                标签间隔：{% if t.gap_mm %}{{ t.gap_mm }} mm{% else %}随打印机{% endif %}
+                            </div>
                         </td>
                         <td class="small">
                             {% if t.show_value %}

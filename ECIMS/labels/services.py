@@ -19,6 +19,40 @@ logger = logging.getLogger(__name__)
 MAX_COPIES = 100
 MAX_LABELS = 500
 
+# 模板中的纸张类型 -> dtpweb LPA_GapType 数值
+GAP_TYPE_CODES = {
+    "none": 0,    # 连续纸（小票纸）
+    "gap": 2,     # 间隙纸
+    "black": 3,   # 黑标纸
+}
+
+
+def _to_float(value, default=0.0):
+    """把 Decimal/字符串等安全转换为 float，非法值返回默认值。"""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def get_gap_print_options(template):
+    """把模板的纸张类型与标签间隔转换为 dtpweb 打印参数。
+
+    ``gapLength`` 仅由 dtpweb 的 JSON 批量打印 jobInfo 支持，单位毫米；
+    因此调用方看到 ``gapLength`` 时需要使用 JSON 模式提交任务。
+    """
+    options = {}
+    gap_type = getattr(template, "gap_type", "unset")
+    if gap_type in GAP_TYPE_CODES:
+        options["gapType"] = GAP_TYPE_CODES[gap_type]
+
+    gap_mm = _to_float(getattr(template, "gap_mm", 0), 0.0)
+    gap_mm = min(max(gap_mm, 0.0), 20.0)
+    if gap_mm > 0:
+        options["gapLength"] = round(gap_mm, 2)
+    return options
+
+
 # dtpweb 返回的打印机 type 含义（兼容新旧版本）
 PRINTER_TYPE_LABELS = {
     1: "本地",
@@ -225,10 +259,12 @@ def get_qr_content(component, template):
 def build_label_layout(component, template):
     """生成标签版面数据，供页面预览与 dtpweb 绘制共用。
 
+    版面参数全部来自模板，便于用户调整边距、行距、字号与二维码位置。
     返回结构::
 
         {
             "width": 40.0, "height": 30.0,
+            "margin": 1.8, "line_spacing": 0.5, "gap_mm": 0.0,
             "lines": [{"text", "x", "y", "width", "height", "font_height"}],
             "qr": {"content", "x", "y", "size"} | None,
         }
@@ -237,20 +273,47 @@ def build_label_layout(component, template):
     height = float(template.height_mm)
     scale = max(0.5, height / 30.0)
 
-    margin = 1.8 * scale
-    base_font = max(1.6, height / 13.0)
+    # 边距不能超过标签宽高，避免自定义参数造成负的可用区域
+    margin = _to_float(getattr(template, "margin_mm", 1.8), 1.8)
+    margin = min(max(margin, 0.0), width / 3.0, height / 3.0)
+    line_spacing = _to_float(getattr(template, "line_spacing_mm", 0.5), 0.5)
+    line_spacing = min(max(line_spacing, 0.0), 10.0)
+    font_scale = _to_float(getattr(template, "font_scale", 1.0), 1.0)
+    font_scale = min(max(font_scale, 0.5), 2.0)
+    gap_mm = _to_float(getattr(template, "gap_mm", 0.0), 0.0)
+    gap_mm = min(max(gap_mm, 0.0), 20.0)
+
+    base_font = max(1.6, height / 13.0) * font_scale
     name_font = base_font * 1.35
     model_font = base_font * 1.1
     body_font = base_font * 0.95
 
     qr_size = 0.0
+    qr_gap = 1.5 * scale
     if template.include_qr:
-        qr_size = min(width * 0.30, height * 0.42, 14.0 * scale)
+        qr_setting = _to_float(getattr(template, "qr_size_mm", 0.0), 0.0)
+        qr_size = (
+            qr_setting if qr_setting > 0
+            else min(width * 0.30, height * 0.42, 14.0 * scale)
+        )
+        # 给文字保留最小宽度，避免二维码设置过大时文字被挤出标签
+        min_text_width = max(4.0, width * 0.2)
+        qr_limit = width - 2 * margin - qr_gap - min_text_width
+        qr_size = min(
+            qr_size, max(0.0, qr_limit), height - 2 * margin,
+        )
+        if qr_size < 1.0:
+            qr_size = 0.0
+    if not qr_size:
+        qr_gap = 0.0
 
-    text_width = width - 2 * margin
-    if qr_size:
-        text_width -= qr_size + 1.5 * scale
-    text_width = max(8.0, text_width)
+    qr_position = getattr(template, "qr_position", "bottom_right")
+    qr_on_left = qr_position in ("bottom_left", "top_left")
+    qr_on_top = qr_position in ("top_left", "top_right")
+
+    text_x = margin + (qr_size + qr_gap if qr_on_left else 0.0)
+    text_width = width - 2 * margin - (qr_size + qr_gap if qr_size else 0.0)
+    text_width = max(0.5, text_width)
 
     lines = []
     cursor = margin
@@ -265,13 +328,13 @@ def build_label_layout(component, template):
             return
         lines.append({
             "text": fit_text(text, text_width, font_height),
-            "x": round(margin, 2),
+            "x": round(text_x, 2),
             "y": round(cursor, 2),
             "width": round(text_width, 2),
             "height": round(line_height, 2),
             "font_height": round(font_height, 2),
         })
-        cursor += line_height + 0.5 * scale
+        cursor += line_height + line_spacing
 
     # 名称与型号始终打印
     add_line(component.name, name_font, line_gap=1.2)
@@ -306,14 +369,17 @@ def build_label_layout(component, template):
     if qr_size:
         qr = {
             "content": get_qr_content(component, template),
-            "x": round(width - margin - qr_size, 2),
-            "y": round(height - margin - qr_size, 2),
+            "x": round(margin if qr_on_left else width - margin - qr_size, 2),
+            "y": round(margin if qr_on_top else height - margin - qr_size, 2),
             "size": round(qr_size, 2),
         }
 
     return {
         "width": round(width, 2),
         "height": round(height, 2),
+        "margin": round(margin, 2),
+        "line_spacing": round(line_spacing, 2),
+        "gap_mm": round(gap_mm, 2),
         "lines": lines,
         "qr": qr,
     }
@@ -429,11 +495,17 @@ def print_labels(components, template, copies=1, printer_key=""):
         logger.exception("无法导入 dtpweb 模块")
         return _failure("未安装 dtpweb Python 模块，请先安装 dtpweb-*.whl。")
 
+    # gapLength 只能通过 dtpweb 的 JSON 批量打印 jobInfo 下发；
+    # 未设置标签间隔时保持原有非 JSON 流程，避免影响现有打印机。
+    gap_options = get_gap_print_options(template)
+    use_json_mode = "gapLength" in gap_options
+
     api = None
     try:
         api = DTPWeb(
             ip=getattr(settings, "DTPWEB_IP", "") or None,
             fontName=template.font_name or "黑体",
+            jsonMode=use_json_mode,
         )
         if not api.check_plugin():
             return _failure(SERVICE_UNAVAILABLE_MESSAGE)
@@ -456,6 +528,7 @@ def print_labels(components, template, copies=1, printer_key=""):
                 float(template.width_mm),
                 float(template.height_mm),
                 jobName="ECIMS 标签打印",
+                **gap_options,
             ):
                 return _failure("创建打印任务失败，请检查标签尺寸与打印机设置。", printer_name)
 
@@ -472,7 +545,7 @@ def print_labels(components, template, copies=1, printer_key=""):
                         )
                     api.end_page()
 
-            result = api.commit_job()
+            result = api.commit_job(**gap_options)
             if not result:
                 return _failure("提交打印任务失败，请查看打印助手状态。", printer_name, label_count)
         finally:

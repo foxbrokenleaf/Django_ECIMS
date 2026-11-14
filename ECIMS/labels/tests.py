@@ -18,6 +18,7 @@ from .services import (
     MAX_LABELS,
     build_label_layout,
     fit_text,
+    get_gap_print_options,
     get_qr_content,
     list_printers,
     print_labels,
@@ -119,6 +120,74 @@ class LabelLayoutTests(SimpleTestCase):
     def test_short_text_is_not_truncated(self):
         self.assertEqual(fit_text("10kΩ", 40, 2), "10kΩ")
 
+    def test_custom_margin_and_line_spacing(self):
+        template = make_template(
+            margin_mm=Decimal("3.0"), line_spacing_mm=Decimal("1.0"),
+        )
+        layout = build_label_layout(self.component, template)
+
+        self.assertEqual(layout["margin"], 3.0)
+        self.assertEqual(layout["line_spacing"], 1.0)
+        self.assertEqual(layout["lines"][0]["x"], 3.0)
+        first, second = layout["lines"][:2]
+        self.assertGreaterEqual(
+            second["y"], first["y"] + first["height"] + 1.0 - 0.01,
+        )
+
+    def test_font_scale_changes_font_height(self):
+        normal = build_label_layout(self.component, self.template)
+        large = build_label_layout(
+            self.component, make_template(font_scale=Decimal("1.5")),
+        )
+        self.assertGreater(
+            large["lines"][0]["font_height"], normal["lines"][0]["font_height"],
+        )
+
+    def test_qr_size_and_position_are_configurable(self):
+        template = make_template(
+            qr_size_mm=Decimal("8.0"),
+            qr_position=LabelTemplate.QrPosition.TOP_LEFT,
+        )
+        layout = build_label_layout(self.component, template)
+
+        self.assertEqual(layout["qr"]["size"], 8.0)
+        self.assertEqual(layout["qr"]["x"], layout["margin"])
+        self.assertEqual(layout["qr"]["y"], layout["margin"])
+
+    def test_qr_position_bottom_left(self):
+        template = make_template(
+            qr_position=LabelTemplate.QrPosition.BOTTOM_LEFT,
+        )
+        layout = build_label_layout(self.component, template)
+        qr = layout["qr"]
+
+        self.assertEqual(qr["x"], layout["margin"])
+        self.assertAlmostEqual(
+            qr["y"] + qr["size"], layout["height"] - layout["margin"], places=2,
+        )
+
+    def test_layout_contains_gap_setting(self):
+        layout = build_label_layout(
+            self.component, make_template(gap_mm=Decimal("2.0")),
+        )
+        self.assertEqual(layout["gap_mm"], 2.0)
+
+    def test_gap_print_options(self):
+        self.assertEqual(get_gap_print_options(make_template()), {})
+        self.assertEqual(
+            get_gap_print_options(make_template(gap_type=LabelTemplate.GapType.GAP)),
+            {"gapType": 2},
+        )
+        self.assertEqual(
+            get_gap_print_options(
+                make_template(
+                    gap_type=LabelTemplate.GapType.BLACK,
+                    gap_mm=Decimal("3.5"),
+                )
+            ),
+            {"gapType": 3, "gapLength": 3.5},
+        )
+
 
 @override_settings(DTPWEB_DRY_RUN=True)
 class DryRunServiceTests(SimpleTestCase):
@@ -166,8 +235,11 @@ class FakeDTPWeb:
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+        self.json_mode = bool(kwargs.get("jsonMode"))
         self.pages = 0
         self.closed = False
+        self.job_kwargs = {}
+        self.commit_kwargs = {}
         FakeDTPWeb.last_instance = self
 
     def check_plugin(self):
@@ -186,6 +258,7 @@ class FakeDTPWeb:
 
     def start_job(self, width, height, **kwargs):
         self.job_size = (width, height)
+        self.job_kwargs = kwargs
         return True
 
     def start_page(self):
@@ -205,7 +278,8 @@ class FakeDTPWeb:
     def end_page(self):
         return True
 
-    def commit_job(self):
+    def commit_job(self, **kwargs):
+        self.commit_kwargs = kwargs
         return self.commit_result
 
     def close_printer(self):
@@ -236,9 +310,39 @@ class DTPWebServiceTests(SimpleTestCase):
 
         api = FakeDTPWeb.last_instance
         self.assertEqual(api.kwargs["fontName"], "微软雅黑")
+        self.assertFalse(api.json_mode)
         self.assertEqual(api.job_size, (40.0, 30.0))
         self.assertEqual(api.pages, 2)
         self.assertTrue(api.closed)
+        self.assertEqual(api.commit_kwargs, {})
+
+    def test_gap_length_uses_json_mode_and_is_forwarded(self):
+        template = make_template(
+            gap_type=LabelTemplate.GapType.GAP,
+            gap_mm=Decimal("2.0"),
+        )
+        result = print_labels([make_component()], template)
+
+        self.assertTrue(result["ok"])
+        api = FakeDTPWeb.last_instance
+        self.assertTrue(api.json_mode)
+        self.assertEqual(api.job_kwargs["gapType"], 2)
+        self.assertEqual(api.job_kwargs["gapLength"], 2.0)
+        self.assertEqual(api.commit_kwargs["gapType"], 2)
+        self.assertEqual(api.commit_kwargs["gapLength"], 2.0)
+
+    def test_gap_type_without_length_keeps_non_json_mode(self):
+        template = make_template(
+            gap_type=LabelTemplate.GapType.NONE,
+            gap_mm=Decimal("0.0"),
+        )
+        result = print_labels([make_component()], template)
+
+        self.assertTrue(result["ok"])
+        api = FakeDTPWeb.last_instance
+        self.assertFalse(api.json_mode)
+        self.assertEqual(api.commit_kwargs, {"gapType": 0})
+        self.assertNotIn("gapLength", api.job_kwargs)
 
     def test_commit_failure_is_reported(self):
         FakeDTPWeb.commit_result = False
@@ -376,6 +480,7 @@ class LabelViewTests(TestCase):
         self.assertContains(response, "标签预览")
         self.assertContains(response, "RC0603-10K")
         self.assertContains(response, "10kΩ")
+        self.assertContains(response, "标签间隔")
 
     @override_settings(DTPWEB_DRY_RUN=True)
     def test_print_creates_one_record_per_component(self):
@@ -477,13 +582,18 @@ class LabelViewTests(TestCase):
         form_page = self.client.get(reverse("labels:template_create"))
         self.assertEqual(form_page.status_code, 200)
         self.assertContains(form_page, "新建标签模板")
+        self.assertContains(form_page, "版面设置")
+        self.assertContains(form_page, "标签间隔")
 
         response = self.client.post(
             reverse("labels:template_create"),
             {
                 "name": "新模板", "description": "测试创建", "width_mm": "50",
                 "height_mm": "40", "font_name": "黑体", "include_qr": "on",
-                "qr_content": "uid", "default_copies": "2",
+                "qr_content": "uid", "qr_size_mm": "10.0",
+                "qr_position": "top_right", "margin_mm": "2.0",
+                "line_spacing_mm": "0.6", "font_scale": "1.1",
+                "gap_type": "gap", "gap_mm": "2.0", "default_copies": "2",
                 "is_default": "on", "is_active": "on",
             },
         )
@@ -492,6 +602,13 @@ class LabelViewTests(TestCase):
         self.assertTrue(created.is_active)
         self.assertTrue(created.is_default)
         self.assertEqual(created.default_copies, 2)
+        self.assertEqual(float(created.margin_mm), 2.0)
+        self.assertEqual(float(created.line_spacing_mm), 0.6)
+        self.assertEqual(float(created.font_scale), 1.1)
+        self.assertEqual(float(created.qr_size_mm), 10.0)
+        self.assertEqual(created.qr_position, "top_right")
+        self.assertEqual(created.gap_type, "gap")
+        self.assertEqual(float(created.gap_mm), 2.0)
         self.template.refresh_from_db()
         self.assertFalse(self.template.is_default)
 
@@ -508,6 +625,9 @@ class LabelViewTests(TestCase):
             {
                 "name": "标准模板V2", "width_mm": "60", "height_mm": "40",
                 "font_name": "微软雅黑", "qr_content": "model",
+                "qr_size_mm": "0", "qr_position": "bottom_left",
+                "margin_mm": "2.5", "line_spacing_mm": "0.8", "font_scale": "0.9",
+                "gap_type": "none", "gap_mm": "0",
                 "default_copies": "5", "is_active": "on",
             },
         )
@@ -516,6 +636,12 @@ class LabelViewTests(TestCase):
         self.assertEqual(self.template.name, "标准模板V2")
         self.assertEqual(self.template.default_copies, 5)
         self.assertEqual(float(self.template.width_mm), 60.0)
+        self.assertEqual(float(self.template.margin_mm), 2.5)
+        self.assertEqual(float(self.template.line_spacing_mm), 0.8)
+        self.assertEqual(float(self.template.font_scale), 0.9)
+        self.assertEqual(float(self.template.gap_mm), 0.0)
+        self.assertEqual(self.template.gap_type, "none")
+        self.assertEqual(self.template.qr_position, "bottom_left")
         self.assertFalse(self.template.include_qr)
 
     def test_superuser_can_toggle_template(self):

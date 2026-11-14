@@ -29,7 +29,9 @@ class LabelTemplateForm(BootstrapFormMixin, forms.ModelForm):
         model = LabelTemplate
         fields = (
             "name", "description", "width_mm", "height_mm", "font_name",
-            "include_qr", "qr_content",
+            "margin_mm", "line_spacing_mm", "font_scale",
+            "include_qr", "qr_content", "qr_size_mm", "qr_position",
+            "gap_type", "gap_mm",
             "show_value", "show_package", "show_stock", "show_location",
             "show_batch", "show_manufacturer", "show_category",
             "default_copies", "is_default", "is_active",
@@ -38,6 +40,11 @@ class LabelTemplateForm(BootstrapFormMixin, forms.ModelForm):
             "description": forms.Textarea(attrs={"rows": 3}),
             "width_mm": forms.NumberInput(attrs={"step": "0.1", "min": "10", "max": "300"}),
             "height_mm": forms.NumberInput(attrs={"step": "0.1", "min": "10", "max": "300"}),
+            "margin_mm": forms.NumberInput(attrs={"step": "0.1", "min": "0", "max": "20"}),
+            "line_spacing_mm": forms.NumberInput(attrs={"step": "0.1", "min": "0", "max": "10"}),
+            "font_scale": forms.NumberInput(attrs={"step": "0.1", "min": "0.5", "max": "2"}),
+            "qr_size_mm": forms.NumberInput(attrs={"step": "0.1", "min": "0", "max": "100"}),
+            "gap_mm": forms.NumberInput(attrs={"step": "0.1", "min": "0", "max": "20"}),
             "default_copies": forms.NumberInput(attrs={"step": "1", "min": "1", "max": "100"}),
         }
 

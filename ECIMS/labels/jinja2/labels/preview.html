@@ -104,6 +104,14 @@
                     </div>
                     <div class="text-muted small text-center mt-3">
                         预览按 6 像素/毫米缩放，实际打印尺寸以模板设置为准。
+                        <div class="mt-1">
+                            边距 {{ layout.margin }}mm · 行距 {{ layout.line_spacing }}mm ·
+                            {% if layout.gap_mm %}
+                                标签间隔 {{ layout.gap_mm }}mm（节距 {{ layout.height + layout.gap_mm }}mm）
+                            {% else %}
+                                标签间隔随打印机设置
+                            {% endif %}
+                        </div>
                         {% if layout.qr %}二维码内容：<code>{{ layout.qr.content }}</code>{% endif %}
                     </div>
                 {% else %}

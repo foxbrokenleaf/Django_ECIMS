@@ -8,10 +8,10 @@ from .models import LabelPrintRecord, LabelTemplate
 @admin.register(LabelTemplate)
 class LabelTemplateAdmin(admin.ModelAdmin):
     list_display = (
-        "name", "width_mm", "height_mm", "font_name", "include_qr",
-        "default_copies", "is_default", "is_active", "updated_at",
+        "name", "width_mm", "height_mm", "font_name", "gap_mm",
+        "include_qr", "default_copies", "is_default", "is_active", "updated_at",
     )
-    list_filter = ("is_active", "is_default", "include_qr")
+    list_filter = ("is_active", "is_default", "include_qr", "gap_type")
     search_fields = ("name", "description")
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
@@ -21,8 +21,14 @@ class LabelTemplateAdmin(admin.ModelAdmin):
         ("尺寸与字体", {
             "fields": ("width_mm", "height_mm", "font_name", "default_copies"),
         }),
+        ("版面布局", {
+            "fields": ("margin_mm", "line_spacing_mm", "font_scale"),
+        }),
+        ("纸张与间隔", {
+            "fields": ("gap_type", "gap_mm"),
+        }),
         ("二维码", {
-            "fields": ("include_qr", "qr_content"),
+            "fields": ("include_qr", "qr_content", "qr_size_mm", "qr_position"),
         }),
         ("打印字段", {
             "fields": (

@@ -23,7 +23,7 @@
             {% if action == 'edit' %}
                 {{ template.name }}（{{ template.width_mm }}×{{ template.height_mm }}mm）
             {% else %}
-                配置标签尺寸、打印字段与二维码内容，保存后即可在打印页面选用。
+                配置标签尺寸、版面、标签间隔、打印字段与二维码内容，保存后即可在打印页面选用。
             {% endif %}
         </p>
     </div>
@@ -58,6 +58,24 @@
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-aspect-ratio text-primary me-2"></i>版面设置
+            <span class="text-muted small ms-2">控制标签内容的留白、行距与字号</span>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">{{ form_field(form.margin_mm) }}</div>
+                <div class="col-md-4 mb-3">{{ form_field(form.line_spacing_mm) }}</div>
+                <div class="col-md-4 mb-3">{{ form_field(form.font_scale) }}</div>
+            </div>
+            <div class="alert alert-light border small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                边距和行距单位为毫米；字号缩放 1.0 表示默认大小。预览页会按这里的设置实时显示版面。
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
             <i class="bi bi-qr-code text-primary me-2"></i>二维码
         </div>
         <div class="card-body">
@@ -75,6 +93,27 @@
                     {% endfor %}
                 </div>
                 <div class="col-md-8 mb-3">{{ form_field(form.qr_content) }}</div>
+                <div class="col-md-4 mb-3">{{ form_field(form.qr_size_mm) }}</div>
+                <div class="col-md-4 mb-3">{{ form_field(form.qr_position) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-arrows-expand text-primary me-2"></i>纸张与标签间隔
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">{{ form_field(form.gap_type) }}</div>
+                <div class="col-md-4 mb-3">{{ form_field(form.gap_mm) }}</div>
+                <div class="col-md-4 mb-3">
+                    <div class="alert alert-light border small mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        标签间隔是两张标签之间的距离。设置为实际间隔（如 2.0mm）后，
+                        会随打印任务下发给打印机；保持 0 则使用打印机已校准的间隔。
+                    </div>
+                </div>
             </div>
         </div>
     </div>

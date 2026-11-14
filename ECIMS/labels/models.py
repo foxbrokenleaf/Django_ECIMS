@@ -1,7 +1,8 @@
 """labels 应用模型：标签模板配置与打印记录。
 
-- ``LabelTemplate``：描述一张标签的物理尺寸、显示哪些元件属性、
-  二维码内容以及默认打印份数，供页面选择并由 ``services`` 组装打印数据。
+- ``LabelTemplate``：描述一张标签的物理尺寸、版面布局、纸张间隔、
+  显示哪些元件属性、二维码内容以及默认打印份数，供页面选择并由
+  ``services`` 组装打印数据。
 - ``LabelPrintRecord``：每次提交打印后按元件落一条记录，便于追溯谁在
   什么时候、用什么模板、哪台打印机打印了多少份。
 """
@@ -23,6 +24,18 @@ class LabelTemplate(models.Model):
         MODEL = "model", "型号/料号"
         NAME_MODEL = "name_model", "元件名称 + 型号"
 
+    class GapType(models.TextChoices):
+        UNSET = "unset", "随打印机设置"
+        NONE = "none", "连续纸（无间隔）"
+        GAP = "gap", "间隙纸"
+        BLACK = "black", "黑标纸"
+
+    class QrPosition(models.TextChoices):
+        BOTTOM_RIGHT = "bottom_right", "右下角"
+        BOTTOM_LEFT = "bottom_left", "左下角"
+        TOP_RIGHT = "top_right", "右上角"
+        TOP_LEFT = "top_left", "左上角"
+
     name = models.CharField("模板名称", max_length=100, unique=True)
     description = models.TextField("模板说明", blank=True)
 
@@ -39,10 +52,47 @@ class LabelTemplate(models.Model):
         help_text="需为打印机所在电脑已安装的字体，如 黑体、宋体、微软雅黑",
     )
 
+    # 版面布局：预览与真实打印共用这些参数
+    margin_mm = models.DecimalField(
+        "内容边距(mm)", max_digits=4, decimal_places=1, default=Decimal("1.8"),
+        validators=[MinValueValidator(Decimal("0.0")), MaxValueValidator(Decimal("20.0"))],
+        help_text="文字与二维码距离标签边缘的留白，单位毫米",
+    )
+    line_spacing_mm = models.DecimalField(
+        "行间距(mm)", max_digits=4, decimal_places=1, default=Decimal("0.5"),
+        validators=[MinValueValidator(Decimal("0.0")), MaxValueValidator(Decimal("10.0"))],
+        help_text="相邻两行内容之间的额外间距，单位毫米",
+    )
+    font_scale = models.DecimalField(
+        "字号缩放", max_digits=3, decimal_places=1, default=Decimal("1.0"),
+        validators=[MinValueValidator(Decimal("0.5")), MaxValueValidator(Decimal("2.0"))],
+        help_text="1.0 为默认字号；0.8 缩小，1.2 放大",
+    )
+
     include_qr = models.BooleanField("打印二维码", default=True)
     qr_content = models.CharField(
         "二维码内容", max_length=20, choices=QrContent.choices, default=QrContent.UID,
         help_text="选择 UID 时，用手机扫码后可在“扫码查询”页面定位元件",
+    )
+    qr_size_mm = models.DecimalField(
+        "二维码尺寸(mm)", max_digits=5, decimal_places=1, default=Decimal("0.0"),
+        validators=[MinValueValidator(Decimal("0.0")), MaxValueValidator(Decimal("100.0"))],
+        help_text="0 表示按标签尺寸自动计算；设置后按指定边长绘制",
+    )
+    qr_position = models.CharField(
+        "二维码位置", max_length=20, choices=QrPosition.choices,
+        default=QrPosition.BOTTOM_RIGHT,
+    )
+
+    # 纸张参数：标签间隔用于让打印机按正确节距走纸
+    gap_type = models.CharField(
+        "纸张类型", max_length=10, choices=GapType.choices, default=GapType.UNSET,
+        help_text="间隙纸请选择“间隙纸”；不确定时保持“随打印机设置”",
+    )
+    gap_mm = models.DecimalField(
+        "标签间隔(mm)", max_digits=4, decimal_places=1, default=Decimal("0.0"),
+        validators=[MinValueValidator(Decimal("0.0")), MaxValueValidator(Decimal("20.0"))],
+        help_text="两张标签之间的距离；0 表示使用打印机已校准的间隔",
     )
 
     # 各字段是否打印到标签上（元件名称、型号始终打印）
