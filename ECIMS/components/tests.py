@@ -8,6 +8,7 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from . import jinja2_env
+from .forms import ComponentForm
 from .models import Category, Component, StockRecord
 
 
@@ -115,6 +116,48 @@ class RecordTypeBadgeFunctionTests(SimpleTestCase):
     def test_unknown_type_falls_back(self):
         html = render_template("{{ record_type_badge(record) }}", record=StockRecord(record_type="XX"))
         self.assertIn("bg-secondary-subtle", html)
+
+
+class ComponentUidTests(TestCase):
+    """元件唯一标识符：创建时自动生成、全局唯一且在表单中不可编辑。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_superuser(
+            username="uid-root", email="uid@example.com", password="test-pass-123"
+        )
+        cls.category = Category.objects.create(name="电阻", code="RES-UID")
+
+    def test_uid_generated_automatically_and_unique(self):
+        first = Component.objects.create(
+            name="贴片电阻", model_number="UID-1", category=self.category,
+        )
+        second = Component.objects.create(
+            name="贴片电容", model_number="UID-2", category=self.category,
+        )
+
+        self.assertIsNotNone(first.uid)
+        self.assertIsNotNone(second.uid)
+        self.assertNotEqual(first.uid, second.uid)
+
+    def test_uid_not_editable_in_form(self):
+        form = ComponentForm()
+        self.assertNotIn("uid", form.fields)
+
+    def test_list_and_detail_show_uid(self):
+        component = Component.objects.create(
+            name="贴片电阻", model_number="UID-3", category=self.category,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("components:component_list"))
+        self.assertContains(response, str(component.uid))
+
+        response = self.client.get(
+            reverse("components:component_detail", args=[component.pk])
+        )
+        self.assertContains(response, "唯一标识符ID")
+        self.assertContains(response, str(component.uid))
 
 
 class CategoryListViewTests(TestCase):
@@ -384,6 +427,7 @@ class ComponentViewTests(TestCase):
         self.assertEqual(component.created_by, self.superuser)
         self.assertEqual(component.stock_quantity, 30)
         self.assertEqual(component.extra_specs, {"温度系数": "±100ppm"})
+        self.assertIsNotNone(component.uid)
 
         record = component.stock_records.get()
         self.assertEqual(record.record_type, StockRecord.RecordType.IN)

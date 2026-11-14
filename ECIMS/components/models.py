@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
@@ -54,6 +56,11 @@ class Component(models.Model):
         SMD = "SMD", "贴片"
         THT = "THT", "插件"
         OTHER = "OTHER", "其他"
+
+    # 唯一标识：创建时自动生成，全局唯一且不可编辑
+    uid = models.UUIDField(
+        "唯一标识符ID", default=uuid.uuid4, editable=False, unique=True,
+    )
 
     # 基本信息
     name = models.CharField("元件名称", max_length=200)

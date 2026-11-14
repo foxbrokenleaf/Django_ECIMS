@@ -13,16 +13,16 @@ class CategoryAdmin(admin.ModelAdmin):
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
     list_display = (
-        "model_number", "name", "category", "package",
+        "model_number", "name", "uid", "category", "package",
         "stock_quantity", "safety_stock", "is_low_stock", "is_active",
     )
     list_filter = ("category", "mount_type", "is_active", "manufacturer")
-    search_fields = ("name", "model_number", "value", "description")
-    readonly_fields = ("stock_quantity", "created_at", "updated_at")
+    search_fields = ("name", "model_number", "uid", "value", "description")
+    readonly_fields = ("uid", "stock_quantity", "created_at", "updated_at")
     autocomplete_fields = ("category",)
     fieldsets = (
         ("基本信息", {
-            "fields": ("name", "model_number", "category", "manufacturer", "description")
+            "fields": ("uid", "name", "model_number", "category", "manufacturer", "description")
         }),
         ("规格参数", {
             "fields": ("package", "mount_type", "value", "tolerance",

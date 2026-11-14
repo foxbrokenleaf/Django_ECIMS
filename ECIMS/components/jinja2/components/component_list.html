@@ -98,6 +98,9 @@
                         {% if c.value %}
                             <span class="text-muted small ms-1">· {{ c.value }}</span>
                         {% endif %}
+                        <div class="text-muted" style="font-size: 11px;" title="唯一标识符ID">
+                            <i class="bi bi-upc-scan me-1"></i>{{ c.uid }}
+                        </div>
                     </td>
                     <td class="small text-muted">{{ c.category.full_path }}</td>
                     <td>
