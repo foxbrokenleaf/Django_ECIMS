@@ -1,6 +1,7 @@
 # Create your views here.
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q
@@ -39,6 +40,10 @@ def category_detail(request, pk):
 
 @login_required
 def category_create(request):
+    """新增品类：仅超级用户可操作。"""
+    if not request.user.is_superuser:
+        raise PermissionDenied("只有超级用户可以新增品类。")
+
     if request.method == "POST":
         name = request.POST.get("name")
         code = request.POST.get("code")
@@ -170,6 +175,10 @@ def component_detail(request, pk):
 
 @login_required
 def component_create(request):
+    """新增元件：仅超级用户可操作。"""
+    if not request.user.is_superuser:
+        raise PermissionDenied("只有超级用户可以新增元件。")
+
     if request.method == "POST":
         form = ComponentForm(request.POST, request.FILES)
         if form.is_valid():

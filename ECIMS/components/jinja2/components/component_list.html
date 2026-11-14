@@ -11,9 +11,11 @@
         </h1>
         <p class="text-muted small mb-0">维护元件信息与规格参数，出入库请在元件详情页登记</p>
     </div>
+    {% if user.is_superuser %}
     <a href="{{ url('components:component_create') }}" class="btn btn-primary shadow-sm">
         <i class="bi bi-plus-lg me-1"></i> 新增元件
     </a>
+    {% endif %}
 </div>
 
 <div class="card border-0 shadow-sm">
@@ -129,9 +131,11 @@
                         <div class="text-muted">
                             <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
                             <p class="mb-2">没有符合条件的元件</p>
+                            {% if user.is_superuser %}
                             <a href="{{ url('components:component_create') }}" class="btn btn-sm btn-primary">
                                 <i class="bi bi-plus-lg"></i> 新增元件
                             </a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

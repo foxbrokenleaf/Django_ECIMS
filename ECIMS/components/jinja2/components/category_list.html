@@ -11,9 +11,11 @@
         </h1>
         <p class="text-muted small mb-0">管理电子元件的分类层级，支持多级嵌套</p>
     </div>
+    {% if user.is_superuser %}
     <a href="{{ url('components:category_create') }}" class="btn btn-primary shadow-sm">
         <i class="bi bi-plus-lg me-1"></i> 新增品类
     </a>
+    {% endif %}
 </div>
 
 <!-- 数据卡片 -->
@@ -97,10 +99,12 @@
                         <div class="text-muted">
                             <i class="bi bi-inbox display-4 d-block mb-3 opacity-50"></i>
                             <p class="mb-2">还没有品类数据</p>
+                            {% if user.is_superuser %}
                             <a href="{{ url('components:category_create') }}"
                                class="btn btn-sm btn-primary">
                                 <i class="bi bi-plus-lg"></i> 创建第一个品类
                             </a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

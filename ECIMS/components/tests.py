@@ -191,16 +191,42 @@ class CategoryFormViewTests(TestCase):
         cls.user = get_user_model().objects.create_user(
             username="category-owner", password="test-pass-123"
         )
+        cls.superuser = get_user_model().objects.create_superuser(
+            username="category-root", email="root@example.com", password="test-pass-123"
+        )
         cls.category = Category.objects.create(name="电阻", code="RES")
 
     def setUp(self):
         self.client.force_login(self.user)
 
     def test_create_page_renders(self):
+        self.client.force_login(self.superuser)
         response = self.client.get(reverse("components:category_create"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "新增品类")
         self.assertContains(response, 'name="parent"')
+
+    def test_normal_user_cannot_open_create_page(self):
+        response = self.client.get(reverse("components:category_create"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_normal_user_cannot_create_category(self):
+        response = self.client.post(
+            reverse("components:category_create"), {"name": "电容", "code": "CAP"}
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Category.objects.filter(name="电容").exists())
+
+    def test_create_entry_hidden_from_normal_user(self):
+        response = self.client.get(reverse("components:category_list"))
+        self.assertNotContains(response, "新增品类")
+        self.assertNotContains(response, reverse("components:category_create"))
+
+    def test_create_entry_visible_for_superuser(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(reverse("components:category_list"))
+        self.assertContains(response, "新增品类")
+        self.assertContains(response, reverse("components:category_create"))
 
     def test_edit_page_renders_and_excludes_self(self):
         parent = Category.objects.create(name="被动器件", code="PAS")
@@ -231,6 +257,9 @@ class ComponentViewTests(TestCase):
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(
             username="engineer", password="test-pass-123"
+        )
+        cls.superuser = get_user_model().objects.create_superuser(
+            username="engineer-root", email="root@example.com", password="test-pass-123"
         )
         cls.root = Category.objects.create(name="电阻", code="RES")
         cls.child = Category.objects.create(name="贴片电阻", code="RES-SMD", parent=cls.root)
@@ -345,13 +374,14 @@ class ComponentViewTests(TestCase):
     # ---- 新增 / 编辑 / 停用 ----
 
     def test_create_component_with_initial_stock(self):
+        self.client.force_login(self.superuser)
         response = self.client.post(reverse("components:component_create"), self.form_data())
         component = Component.objects.get(model_number="RC0603-4K7")
 
         self.assertRedirects(
             response, reverse("components:component_detail", args=[component.pk])
         )
-        self.assertEqual(component.created_by, self.user)
+        self.assertEqual(component.created_by, self.superuser)
         self.assertEqual(component.stock_quantity, 30)
         self.assertEqual(component.extra_specs, {"温度系数": "±100ppm"})
 
@@ -359,9 +389,10 @@ class ComponentViewTests(TestCase):
         self.assertEqual(record.record_type, StockRecord.RecordType.IN)
         self.assertEqual(record.quantity, 30)
         self.assertEqual(record.quantity_after, 30)
-        self.assertEqual(record.operator, self.user)
+        self.assertEqual(record.operator, self.superuser)
 
     def test_create_duplicate_model_and_manufacturer_rejected(self):
+        self.client.force_login(self.superuser)
         response = self.client.post(
             reverse("components:component_create"),
             self.form_data(model_number="RC0603-10K", manufacturer="Yageo"),
@@ -372,6 +403,7 @@ class ComponentViewTests(TestCase):
         self.assertEqual(Component.objects.filter(model_number="RC0603-10K").count(), 1)
 
     def test_create_requires_name_and_model(self):
+        self.client.force_login(self.superuser)
         response = self.client.post(
             reverse("components:component_create"), self.form_data(name="", model_number="")
         )
@@ -382,6 +414,7 @@ class ComponentViewTests(TestCase):
         self.assertEqual(Component.objects.count(), 2)
 
     def test_create_form_rejects_invalid_json_specs(self):
+        self.client.force_login(self.superuser)
         response = self.client.post(
             reverse("components:component_create"),
             self.form_data(extra_specs="{not json}"),
@@ -488,12 +521,35 @@ class ComponentViewTests(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_create_page_renders(self):
+        self.client.force_login(self.superuser)
         response = self.client.get(reverse("components:component_create"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "新增元件")
         self.assertContains(response, 'name="initial_stock"')
         # {{ csrf_input }} 由 Django Jinja2 后端注入
         self.assertContains(response, "csrfmiddlewaretoken")
+
+    def test_normal_user_cannot_open_create_page(self):
+        response = self.client.get(reverse("components:component_create"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_normal_user_cannot_create_component(self):
+        response = self.client.post(
+            reverse("components:component_create"), self.form_data()
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Component.objects.filter(model_number="RC0603-4K7").exists())
+
+    def test_create_entry_hidden_from_normal_user(self):
+        response = self.client.get(reverse("components:component_list"))
+        self.assertNotContains(response, "新增元件")
+        self.assertNotContains(response, reverse("components:component_create"))
+
+    def test_create_entry_visible_for_superuser(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(reverse("components:component_list"))
+        self.assertContains(response, "新增元件")
+        self.assertContains(response, reverse("components:component_create"))
 
     def test_delete_confirm_page_renders(self):
         response = self.client.get(
