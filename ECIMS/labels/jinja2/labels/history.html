@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}打印记录 · ECIMS{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{{ url('labels:home') }}" class="text-decoration-none">标签打印</a></li>
+        <li class="breadcrumb-item active" aria-current="page">打印记录</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+    <div>
+        <h1 class="h5 mb-1 fw-semibold"><i class="bi bi-clock-history text-primary me-2"></i>标签打印记录</h1>
+        <p class="text-muted small mb-0">
+            共 {{ total_count }} 条记录{% if not user.is_staff %}（仅显示本人操作）{% endif %}。
+        </p>
+    </div>
+    <a href="{{ url('labels:home') }}" class="btn btn-light border">
+        <i class="bi bi-arrow-left me-1"></i> 返回标签打印
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" action="{{ url('labels:history') }}" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small text-muted mb-1" for="historyQ">关键词</label>
+                <input type="search" class="form-control form-control-sm" id="historyQ" name="q"
+                       value="{{ filters.q }}" placeholder="元件名称 / 型号 / 模板 / 打印机">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1" for="historyStatus">状态</label>
+                <select class="form-select form-select-sm" id="historyStatus" name="status">
+                    <option value="">全部状态</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-search me-1"></i>筛选
+                </button>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ url('labels:history') }}" class="btn btn-light border btn-sm w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>元件</th>
+                    <th>模板</th>
+                    <th class="text-center">份数</th>
+                    <th>打印机</th>
+                    <th>状态</th>
+                    <th>操作人</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                {% for record in records %}
+                    <tr>
+                        <td class="small text-nowrap">
+                            {{ record.created_at.strftime("%Y-%m-%d %H:%M") }}
+                            <div class="text-muted" style="font-size: 11.5px;">
+                                批次 {{ record.batch_id|string|truncate(8, True, "") }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if record.component %}
+                                <a href="{{ url('labels:preview', record.component.pk) }}"
+                                   class="fw-semibold text-decoration-none">{{ record.component_name }}</a>
+                            {% else %}
+                                <span class="fw-semibold">{{ record.component_name|default("已删除元件", true) }}</span>
+                            {% endif %}
+                            <div class="small text-muted">
+                                <code>{{ record.component_model }}</code>
+                                {% if record.component_uid %}
+                                    <span class="ms-2">{{ record.component_uid|string|truncate(8, True, "") }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="small">{{ record.template_name|default("—", true) }}</td>
+                        <td class="text-center">{{ record.copies }}</td>
+                        <td class="small">{{ record.printer_name|default("—", true) }}</td>
+                        <td>
+                            {% if record.status == 'success' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                    <i class="bi bi-check-circle me-1"></i>{{ record.get_status_display() }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"
+                                      title="{{ record.message }}">
+                                    <i class="bi bi-x-circle me-1"></i>{{ record.get_status_display() }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="small">{{ record.operator.username if record.operator else "—" }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            暂无打印记录。
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if is_paginated %}
+        <div class="card-footer bg-white border-0 py-3">
+            <nav>
+                <ul class="pagination pagination-sm mb-0 justify-content-center">
+                    {% if page_obj.has_previous() %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{{ querystring(page=page_obj.previous_page_number()) }}">上一页</a>
+                        </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next() %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{{ querystring(page=page_obj.next_page_number()) }}">下一页</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

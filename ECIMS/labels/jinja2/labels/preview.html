@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}标签预览 · {{ component.name }} · ECIMS{% endblock %}
+
+{% block extra_head %}
+<style>
+    .label-stage {
+        background: #f1f3f5;
+        border-radius: .5rem;
+        padding: 22px 16px;
+        display: flex;
+        justify-content: center;
+    }
+    .label-canvas {
+        position: relative;
+        background: #fff;
+        border: 1px solid #adb5bd;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+        overflow: hidden;
+    }
+    .label-line {
+        position: absolute;
+        white-space: nowrap;
+        overflow: hidden;
+        color: #111;
+        line-height: 1.05;
+        font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    .label-qr {
+        position: absolute;
+        border: 1px dashed #adb5bd;
+        background: #f8f9fa;
+        color: #6c757d;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        font-size: 11px;
+    }
+    .label-qr i { font-size: 22px; }
+    .attr-table th { width: 120px; font-weight: 500; color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{{ url('components:component_list') }}" class="text-decoration-none">元件管理</a></li>
+        <li class="breadcrumb-item"><a href="{{ url('labels:home') }}" class="text-decoration-none">标签打印</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ component.name }} 标签预览</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+    <div>
+        <h1 class="h5 mb-1 fw-semibold"><i class="bi bi-upc-scan text-primary me-2"></i>标签预览</h1>
+        <div class="text-muted small">
+            {{ component.name }} · <code>{{ component.model_number }}</code>
+            {% if template %}· 模板「{{ template.name }}」{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url('components:component_detail', component.pk) }}" class="btn btn-light border">
+            <i class="bi bi-box-seam me-1"></i> 元件详情
+        </a>
+        <a href="{{ url('labels:home') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-left me-1"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <!-- 标签预览 -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-tag text-primary me-2"></i>标签版面</span>
+                {% if template %}
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        {{ template.width_mm }}×{{ template.height_mm }}mm
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if layout %}
+                    <div class="label-stage">
+                        <div class="label-canvas"
+                             style="width: {{ layout.width * 6 }}px; height: {{ layout.height * 6 }}px;">
+                            {% for line in layout.lines %}
+                                <div class="label-line"
+                                     style="left: {{ line.x * 6 }}px; top: {{ line.y * 6 }}px;
+                                            width: {{ line.width * 6 }}px; height: {{ line.height * 6 }}px;
+                                            font-size: {{ line.font_height * 4.6 }}px;">{{ line.text }}</div>
+                            {% endfor %}
+                            {% if layout.qr %}
+                                <div class="label-qr"
+                                     style="left: {{ layout.qr.x * 6 }}px; top: {{ layout.qr.y * 6 }}px;
+                                            width: {{ layout.qr.size * 6 }}px; height: {{ layout.qr.size * 6 }}px;">
+                                    <i class="bi bi-qr-code"></i>
+                                    <span>二维码</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-muted small text-center mt-3">
+                        预览按 6 像素/毫米缩放，实际打印尺寸以模板设置为准。
+                        {% if layout.qr %}二维码内容：<code>{{ layout.qr.content }}</code>{% endif %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning mb-0">
+                        还没有可用的标签模板，请先到
+                        <a href="{{ url('labels:template_list') }}" class="alert-link">标签模板</a>
+                        中创建。
+                    </div>
+                {% endif %}
+            </div>
+            {% if templates %}
+                <div class="card-footer bg-white py-2">
+                    <form method="get" action="{{ url('labels:preview', component.pk) }}" class="d-flex gap-2 align-items-center">
+                        <span class="small text-muted">切换模板预览</span>
+                        <select class="form-select form-select-sm" name="template" style="max-width: 260px;">
+                            {% for t in templates %}
+                                <option value="{{ t.pk }}" {% if template and t.pk == template.pk %}selected{% endif %}>
+                                    {{ t.name }}（{{ t.width_mm }}×{{ t.height_mm }}mm）
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-light border">应用</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 打印操作 -->
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white py-3 fw-semibold">
+                <i class="bi bi-printer text-primary me-2"></i>打印此标签
+            </div>
+            <div class="card-body">
+                {% if not printer_info.service_available %}
+                    <div class="alert alert-warning py-2 small mb-3">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        {{ printer_info.error or '打印服务不可用，无法提交打印。' }}
+                    </div>
+                {% endif %}
+                <form method="post" action="{{ url('labels:print') }}">
+                    {{ csrf_input }}
+                    <input type="hidden" name="component" value="{{ component.pk }}">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small text-muted mb-1" for="previewTemplate">标签模板</label>
+                            <select class="form-select" id="previewTemplate" name="template" required>
+                                {% for t in templates %}
+                                    <option value="{{ t.pk }}" data-default-copies="{{ t.default_copies }}"
+                                            {% if template and t.pk == template.pk %}selected{% endif %}>
+                                        {{ t.name }}（{{ t.width_mm }}×{{ t.height_mm }}mm）
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1" for="previewCopies">份数</label>
+                            <input type="number" class="form-control" id="previewCopies" name="copies"
+                                   min="1" max="{{ form.copies.field.max_value }}"
+                                   value="{{ form.copies.value() or 1 }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted mb-1" for="id_printer">打印机</label>
+                            <select class="form-select" id="id_printer" name="printer"
+                                    data-printers-url="{{ url('labels:printers') }}"
+                                    data-default-printer="{{ printer_info.default_printer }}">
+                                <option value="">自动选择默认打印机</option>
+                                {% for p in printer_info.printers %}
+                                    <option value="{{ p.key }}" {% if p.key == printer_info.default_printer %}selected{% endif %}>
+                                        {{ p.name }}（{{ p.type_label }}）
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div id="printerStatus" class="small text-muted mt-1">
+                                {% if printer_info.service_available %}
+                                    <i class="bi bi-check-circle me-1"></i>{{ printer_info.default_printer_name or '就绪' }}
+                                {% else %}
+                                    <i class="bi bi-exclamation-triangle me-1"></i>未连接
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100"
+                                    {% if not templates or not printer_info.service_available %}disabled{% endif %}>
+                                <i class="bi bi-printer me-1"></i>打印
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：库存属性与二维码说明 -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-info-circle text-primary me-2"></i>库存属性</span>
+                {{ stock_badge(component) }}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 attr-table">
+                    <tbody>
+                        <tr><th class="ps-3">唯一标识符ID</th><td><code class="small">{{ component.uid }}</code></td></tr>
+                        <tr><th class="ps-3">元件名称</th><td>{{ component.name }}</td></tr>
+                        <tr><th class="ps-3">型号/料号</th><td><code>{{ component.model_number }}</code></td></tr>
+                        <tr><th class="ps-3">所属品类</th><td>{{ component.category.full_path }}</td></tr>
+                        <tr><th class="ps-3">制造商</th><td>{{ component.manufacturer|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">参数值</th><td>{{ component.value|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">封装</th><td>{{ component.package|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">安装方式</th><td>{{ component.get_mount_type_display() }}</td></tr>
+                        <tr><th class="ps-3">精度/容差</th><td>{{ component.tolerance|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">额定电压</th><td>{{ component.voltage_rating|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">额定功率</th><td>{{ component.power_rating|default("—", true) }}</td></tr>
+                        <tr>
+                            <th class="ps-3">库存</th>
+                            <td>{{ component.stock_quantity }} {{ component.unit }}
+                                <span class="text-muted small">（安全库存 {{ component.safety_stock }}）</span>
+                            </td>
+                        </tr>
+                        <tr><th class="ps-3">存放位置</th><td>{{ component.storage_location|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">批次号</th><td>{{ component.batch_number|default("—", true) }}</td></tr>
+                        <tr><th class="ps-3">供应商</th><td>{{ component.supplier|default("—", true) }}</td></tr>
+                        {% if component.extra_specs %}
+                            {% for key, value in component.extra_specs.items() %}
+                                <tr><th class="ps-3">{{ key }}</th><td>{{ value }}</td></tr>
+                            {% endfor %}
+                        {% endif %}
+                        {% if component.description %}
+                            <tr><th class="ps-3">描述</th><td class="small">{{ component.description|linebreaksbr }}</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if layout and layout.qr %}
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-body d-flex align-items-start gap-3">
+                    <i class="bi bi-qr-code fs-3 text-primary"></i>
+                    <div class="small">
+                        <div class="fw-semibold mb-1">二维码内容</div>
+                        <code class="d-block text-break">{{ layout.qr.content }}</code>
+                        {% if template and template.qr_content == 'uid' %}
+                            <a href="{{ url('labels:scan', component.uid) }}" class="text-decoration-none">
+                                打开扫码查询页 <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+{% include "labels/_printer_script.html" %}
+<script>
+    (function () {
+        const templateSelect = document.getElementById("previewTemplate");
+        const copies = document.getElementById("previewCopies");
+        if (!templateSelect || !copies) return;
+        templateSelect.addEventListener("change", function () {
+            const option = templateSelect.selectedOptions[0];
+            if (option && option.dataset.defaultCopies) copies.value = option.dataset.defaultCopies;
+        });
+    })();
+</script>
+{% endblock %}
+

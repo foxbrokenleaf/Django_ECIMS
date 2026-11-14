@@ -1,0 +1,57 @@
+{# 打印机列表动态刷新：home / preview 页面在 extra_js 中 include #}
+<script>
+    (function () {
+        const select = document.getElementById("id_printer");
+        const status = document.getElementById("printerStatus");
+        const refresh = document.getElementById("refreshPrinters");
+        if (!select) return;
+
+        const url = select.dataset.printersUrl;
+
+        function renderStatus(info, textClass) {
+            if (!status) return;
+            status.className = `small ${textClass}`;
+            status.textContent = info;
+        }
+
+        async function loadPrinters() {
+            if (!url) return;
+            renderStatus("检测中…", "text-muted");
+            try {
+                const response = await fetch(url, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin",
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                const current = select.value;
+
+                select.innerHTML = "";
+                const autoOption = document.createElement("option");
+                autoOption.value = "";
+                autoOption.textContent = "自动选择默认打印机";
+                select.appendChild(autoOption);
+
+                (data.printers || []).forEach((printer) => {
+                    const option = document.createElement("option");
+                    option.value = printer.key;
+                    option.textContent = `${printer.name}（${printer.type_label}）`;
+                    select.appendChild(option);
+                });
+
+                if (current) select.value = current;
+                if (!select.value && data.default_printer) select.value = data.default_printer;
+
+                if (data.service_available && (data.printers || []).length) {
+                    renderStatus(`已连接：${data.default_printer_name || "就绪"}`, "text-success");
+                } else {
+                    renderStatus(data.error || "未检测到打印机", "text-danger");
+                }
+            } catch (error) {
+                renderStatus(`检测失败：${error.message}`, "text-danger");
+            }
+        }
+
+        if (refresh) refresh.addEventListener("click", loadPrinters);
+    })();
+</script>

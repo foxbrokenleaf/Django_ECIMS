@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}标签打印 · ECIMS{% endblock %}
+
+{% block extra_head %}
+<style>
+    .print-settings { position: sticky; top: 16px; z-index: 3; }
+    .component-check { width: 1.05rem; height: 1.05rem; cursor: pointer; }
+    .component-row td { vertical-align: middle; }
+    .component-name { font-weight: 600; color: #212529; }
+    .component-meta { font-size: 12.5px; color: #6c757d; }
+    .filter-card .form-label { font-size: 12.5px; color: #6c757d; margin-bottom: .15rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{{ url('components:component_list') }}" class="text-decoration-none">元件管理</a></li>
+        <li class="breadcrumb-item active" aria-current="page">标签打印</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+    <div>
+        <h1 class="h4 mb-1 fw-semibold"><i class="bi bi-tags text-primary me-2"></i>标签打印</h1>
+        <p class="text-muted small mb-0">
+            从库存中选择元件，选择模板与打印机后批量打印；标签内容直接取自库存属性，二维码可用于扫码查询。
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url('labels:template_list') }}" class="btn btn-light border">
+            <i class="bi bi-sliders me-1"></i> 标签模板
+        </a>
+        <a href="{{ url('labels:history') }}" class="btn btn-light border">
+            <i class="bi bi-clock-history me-1"></i> 打印记录
+        </a>
+    </div>
+</div>
+
+{% if not printer_info.service_available %}
+    <div class="alert alert-warning d-flex align-items-start gap-2">
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div>
+            <div class="fw-semibold">打印服务不可用</div>
+            <div class="small mb-0">{{ printer_info.error or '请检查 dtpweb 打印助手与打印机状态。' }}</div>
+        </div>
+    </div>
+{% elif not printer_info.printers %}
+    <div class="alert alert-warning">
+        <i class="bi bi-printer me-1"></i>{{ printer_info.error or '未检测到可用打印机。' }}
+    </div>
+{% endif %}
+
+{% if not templates %}
+    <div class="alert alert-warning">
+        <i class="bi bi-info-circle me-1"></i>
+        还没有启用中的标签模板，请先到
+        <a href="{{ url('labels:template_list') }}" class="alert-link">标签模板</a>
+        中创建或启用模板。
+    </div>
+{% endif %}
+
+<!-- 筛选 -->
+<div class="card border-0 shadow-sm mb-3 filter-card">
+    <div class="card-body py-3">
+        <form method="get" action="{{ url('labels:home') }}" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label" for="filterQ">关键词</label>
+                <input type="search" class="form-control form-control-sm" id="filterQ" name="q"
+                       value="{{ filters.q }}" placeholder="名称 / 型号 / 参数 / 位置 / 批次">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="filterCategory">品类</label>
+                <select class="form-select form-select-sm" id="filterCategory" name="category">
+                    <option value="">全部品类</option>
+                    {% for c in categories %}
+                        <option value="{{ c.pk }}" {% if filters.category == c.pk|string %}selected{% endif %}>{{ c.full_path }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="filterMount">安装方式</label>
+                <select class="form-select form-select-sm" id="filterMount" name="mount_type">
+                    <option value="">全部</option>
+                    {% for value, label in mount_types %}
+                        <option value="{{ value }}" {% if filters.mount_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex gap-3 pt-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="filterHasStock" name="has_stock"
+                               value="1" {% if filters.has_stock %}checked{% endif %}>
+                        <label class="form-check-label small" for="filterHasStock">仅显示有库存</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="filterLowStock" name="low_stock"
+                               value="1" {% if filters.low_stock %}checked{% endif %}>
+                        <label class="form-check-label small" for="filterLowStock">库存预警</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-search me-1"></i>筛选
+                </button>
+                <a href="{{ url('labels:home') }}" class="btn btn-light border btn-sm">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<form method="post" action="{{ url('labels:print') }}" id="printForm">
+    {{ csrf_input }}
+
+    <!-- 打印设置 -->
+    <div class="card border-0 shadow-sm mb-3 print-settings">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1" for="id_template">标签模板</label>
+                    <select class="form-select" id="id_template" name="template" required>
+                        {% if not templates %}
+                            <option value="">暂无可用模板</option>
+                        {% endif %}
+                        {% for t in templates %}
+                            <option value="{{ t.pk }}" data-default-copies="{{ t.default_copies }}"
+                                    {% if default_template and t.pk == default_template.pk %}selected{% endif %}>
+                                {{ t.name }}（{{ t.width_mm }}×{{ t.height_mm }}mm）
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1" for="id_copies">每个元件份数</label>
+                    <input type="number" class="form-control" id="id_copies" name="copies"
+                           min="1" max="{{ form.copies.field.max_value }}"
+                           value="{{ form.copies.value() or 1 }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1" for="id_printer">
+                        打印机
+                        <a href="javascript:void(0)" id="refreshPrinters" class="text-decoration-none small ms-1"
+                           title="重新检测打印机"><i class="bi bi-arrow-clockwise"></i></a>
+                    </label>
+                    <select class="form-select" id="id_printer" name="printer"
+                            data-printers-url="{{ url('labels:printers') }}"
+                            data-default-printer="{{ printer_info.default_printer }}">
+                        <option value="">自动选择默认打印机</option>
+                        {% for p in printer_info.printers %}
+                            <option value="{{ p.key }}" {% if p.key == printer_info.default_printer %}selected{% endif %}>
+                                {{ p.name }}（{{ p.type_label }}）
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="small text-muted mb-1">打印服务</div>
+                    <div id="printerStatus" class="small {% if printer_info.service_available %}text-success{% else %}text-danger{% endif %}">
+                        {% if printer_info.service_available %}
+                            <i class="bi bi-check-circle me-1"></i>{{ printer_info.default_printer_name or '就绪' }}
+                        {% else %}
+                            <i class="bi bi-exclamation-triangle me-1"></i>未连接
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-2 text-md-end">
+                    <button type="submit" class="btn btn-primary w-100" id="printButton"
+                            {% if not templates %}disabled{% endif %}>
+                        <i class="bi bi-printer me-1"></i>打印标签
+                    </button>
+                    <div class="small text-muted mt-1" id="selectionHint">已选 0 个元件</div>
+                </div>
+            </div>
+            <div class="alert alert-warning d-none mt-3 mb-0 py-2" id="selectionAlert">
+                <i class="bi bi-exclamation-triangle me-1"></i>请先勾选需要打印标签的元件。
+            </div>
+        </div>
+    </div>
+
+    <!-- 元件列表 -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="fw-semibold">
+                <i class="bi bi-box-seam text-primary me-2"></i>库存元件
+                <span class="text-muted small ms-1">共 {{ total_count }} 项，其中库存预警 {{ low_stock_count }} 项</span>
+            </span>
+            <div class="form-check mb-0">
+                <input class="form-check-input component-check" type="checkbox" id="checkAll">
+                <label class="form-check-label small" for="checkAll">全选本页</label>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 42px;"></th>
+                        <th>元件</th>
+                        <th>品类</th>
+                        <th>参数 / 封装</th>
+                        <th>库存</th>
+                        <th>存放位置</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for component in components %}
+                        <tr class="component-row">
+                            <td>
+                                <input class="form-check-input component-check js-component-check"
+                                       type="checkbox" name="component" value="{{ component.pk }}"
+                                       id="component{{ component.pk }}">
+                            </td>
+                            <td>
+                                <label class="component-name d-block" for="component{{ component.pk }}">
+                                    {{ component.name }}
+                                </label>
+                                <div class="component-meta">
+                                    <code class="text-primary">{{ component.model_number }}</code>
+                                    {% if component.manufacturer %}<span class="ms-2">· {{ component.manufacturer }}</span>{% endif %}
+                                    <span class="ms-2">· {{ component.get_mount_type_display() }}</span>
+                                </div>
+                            </td>
+                            <td class="small text-muted">{{ component.category.full_path }}</td>
+                            <td class="small">
+                                {% if component.value %}<span class="me-2">参数：{{ component.value }}</span>{% endif %}
+                                {% if component.package %}<span class="text-muted">封装：{{ component.package }}</span>{% endif %}
+                                {% if not component.value and not component.package %}<span class="text-muted">—</span>{% endif %}
+                            </td>
+                            <td>{{ stock_badge(component) }}</td>
+                            <td class="small text-muted">
+                                {% if component.storage_location %}
+                                    <i class="bi bi-geo-alt me-1"></i>{{ component.storage_location }}
+                                {% else %}—{% endif %}
+                                {% if component.batch_number %}
+                                    <div class="component-meta">批次：{{ component.batch_number }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url('labels:preview', component.pk) }}"
+                                   class="btn btn-sm btn-light border" title="预览标签">
+                                    <i class="bi bi-eye"></i> 预览
+                                </a>
+                                <a href="{{ url('components:component_detail', component.pk) }}"
+                                   class="btn btn-sm btn-light border" title="元件详情">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                没有符合条件的元件，请调整筛选条件。
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if is_paginated %}
+            <div class="card-footer bg-white border-0 py-3">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 justify-content-center">
+                        {% if page_obj.has_previous() %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{{ querystring(page=page_obj.previous_page_number()) }}">上一页</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                        </li>
+                        {% if page_obj.has_next() %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{{ querystring(page=page_obj.next_page_number()) }}">下一页</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+</form>
+
+{% endblock %}
+
+
+{% block extra_js %}
+{% include "labels/_printer_script.html" %}
+<script>
+    (function () {
+        const form = document.getElementById("printForm");
+        if (!form) return;
+
+        const checks = Array.from(form.querySelectorAll(".js-component-check"));
+        const checkAll = document.getElementById("checkAll");
+        const hint = document.getElementById("selectionHint");
+        const alertBox = document.getElementById("selectionAlert");
+        const copies = document.getElementById("id_copies");
+        const templateSelect = document.getElementById("id_template");
+
+        function updateSelection() {
+            const selected = checks.filter((item) => item.checked).length;
+            hint.textContent = `已选 ${selected} 个元件`;
+            if (selected > 0) alertBox.classList.add("d-none");
+            if (checkAll) {
+                checkAll.checked = checks.length > 0 && selected === checks.length;
+                checkAll.indeterminate = selected > 0 && selected < checks.length;
+            }
+        }
+
+        checks.forEach((item) => item.addEventListener("change", updateSelection));
+        if (checkAll) {
+            checkAll.addEventListener("change", function () {
+                checks.forEach((item) => { item.checked = checkAll.checked; });
+                updateSelection();
+            });
+        }
+        if (templateSelect && copies) {
+            templateSelect.addEventListener("change", function () {
+                const option = templateSelect.selectedOptions[0];
+                if (option && option.dataset.defaultCopies) {
+                    copies.value = option.dataset.defaultCopies;
+                }
+            });
+        }
+        form.addEventListener("submit", function (event) {
+            if (!checks.some((item) => item.checked)) {
+                event.preventDefault();
+                alertBox.classList.remove("d-none");
+                alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        });
+
+        updateSelection();
+    })();
+</script>
+{% endblock %}

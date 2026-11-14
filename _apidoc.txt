@@ -1,0 +1,815 @@
+=====PAGE 1=====
+标签打印机
+dtpweb 打印接口说明
+PC Python3 版本
+V2.2.20250212
+DothanTech 玄码
+2025 年 02 月 12 日
+=====PAGE 2=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+2 / 29
+目 录
+目 录 ............................................................................................................................................................... 2
+1. dtpweb 接口概述 ....................................................................................................................................... 4
+2. dtpweb 接口使用简述 ............................................................................................................................... 5
+3. 插件检查 ...................................................................................................................................................... 6
+3.1 check_plugin 检查本地 dtpweb 打印助手是否可用 ............................................................... 6
+4. 连接打印机相关方法 .................................................................................................................................. 6
+4.1 get_printers 获取所有符合要求的打印机 ..................................................................................6
+4.2 open_printer 打开指定的打印机 .................................................................................................. 7
+4.3 get_printer_name 获取已连接打印机名称 ............................................................................... 8
+4.4 get_param 获取相关打印参数 .................................................................................................... 8
+4.5 set_param 设置打印参数 ............................................................................................................. 9
+4.6 get_gap_type 获取已连接打印机的纸张类型 .........................................................................10
+4.7 set_gap_type 修改已连接打印机的纸张类型 ..........................................................................10
+4.8 get_print_darkness 获取已连接打印机的打印浓度 ...............................................................11
+4.9 set_print_darkness 修改已连接打印机的打印浓度 ............................................................... 11
+4.10 get_print_speed 获取已连接打印机的打印速度 ..................................................................11
+4.11 set_print_speed 修改已连接打印机的打印速度 .................................................................. 12
+4.12 get_printer_dpi 获取已连接打印机的分辨率 ....................................................................... 12
+4.13 is_printer_opened 判断当前打印机是否打开成功 .............................................................. 12
+4.14 close_printer 断开当前已连接打印机 ....................................................................................13
+4.15 print_image 打印 BASE64 格式图片 ..................................................................................... 13
+4.16 print 通过参数配置方式进行标签的批量打印 ....................................................................... 14
+5. 打印任务与绘制页面的方法说明 ............................................................................................................15
+5.1 start_job 开始绘图任务 .............................................................................................................. 15
+5.2 commit_job 提交数据打印 ......................................................................................................... 16
+5.3 start_page 开始绘制一个页面 ...................................................................................................16
+5.4 end_page 结束一个页面的绘制 ................................................................................................ 17
+6. 绘制文本字符串方法说明 ........................................................................................................................17
+6.1 pound_to_mm 磅值转换为毫米 ............................................................................................... 18
+6.2 mm_to_pound 毫米转换为磅 ................................................................................................... 18
+6.3 draw_text 绘制文本字符串 ........................................................................................................ 19
+7. 绘制条码方法说明 ....................................................................................................................................20
+7.1 draw_barcode 绘制 Barcode 一维条码 .................................................................................. 21
+7.2 draw_qrcode 绘制 QRCode 二维码 ........................................................................................ 22
+7.3 draw_pdf417 绘制 Pdf417 二维码 ..........................................................................................23
+8. 矢量图的绘制方法说明 ............................................................................................................................24
+=====PAGE 3=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+3 / 29
+8.1 draw_rect 以指定的线宽，绘制矩形框 .................................................................................... 24
+8.2 draw_ellipse 以指定的线宽，绘制圆/椭圆 ............................................................................. 24
+8.3 draw_circle 以指定的位置为中心，绘制圆 ............................................................................. 25
+8.4 draw_line 绘制线（直线/斜线） ...............................................................................................26
+9. 图片绘制方法说明 ....................................................................................................................................26
+9.1 draw_image 绘制指定文件的图片 ............................................................................................26
+9.2 draw_mage_data 绘制 BASE64 格式的图片 ..........................................................................27
+文档修改记录 ................................................................................................................................................. 29
+=====PAGE 4=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+4 / 29
+1. dtpweb 接口概述
+dtpweb 接口是在标签打印机厂家所提供的 dtpweb 打印助手的基础上进行二次封
+装的 Python3 接口。目的是为了让用户能够快速无缝的完成对打印机进行的相关操作，
+缩短开发周期，加快开发进度。
+针对不同的开发环境，dtpweb 接口都有很好的兼容性，任何支持 http 请求的开
+发语言都可以通过 dtpweb 接口进行打印机相关操作。
+dtpweb 接口具备广泛的系统兼容性，支持 Windows、麒麟 OS、统信 UOS、
+Ubuntu、Debian 等主流的桌面操作系统。
+dtpweb 接口为调用者提供易用的方法，可以让用户快速地完成标签绘制打印的相
+关操作。本接口中提供了文字、一维条码、二维码、图片和各种图形等多种对象的绘制
+方法，同时还能进行绘制对象的旋转和绘图页面的旋转，调用者还可调用方法获得绘制
+完成的标签图片用于标签预览，使标签绘图的操作更加简便。
+=====PAGE 5=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+5 / 29
+2. dtpweb 接口使用简述
+dtpweb 接口的基本调用流程如下：
+代码
+# 第一部分：准备阶段
+# 1.1 导入 DTPWeb 接口
+from dtpweb import DTPWeb
+# 1.2 创建接口实例
+api = DTPWeb()
+# 1.3. 检查本地dtpweb打印助手是否启用，以及获取可用的端口号
+api.check_plugin()
+# 1.4. 获取打印机列表
+printers = api.get_printers()
+# 第二部分：编辑标签内容并打印
+def print_text():
+# 2.1 打开打印机
+api.open_printer(**printers[0])
+# 2.2 创建指定大小的打印（标签）任务，相关操作单位为毫米。
+api.start_job(width=40, height=30)
+# 2.3 绘制文本信息
+api.draw_text("德佟电子", width=40, height=30, fontHeight = 3.5)
+# 2.4 提交打印任务，开始打印
+api.commit_job()
+# 2.5 根据实际情况，关闭打印机
+# 如果还有后续打印，不需要关闭，如果不需要打印，为了避免影响其他用户使
+# 用打印机，可以关闭打印机。
+api.close_printer()
+=====PAGE 6=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+6 / 29
+3. 插件检查
+3.1 check_plugin 检查本地 dtpweb 打印助手是否可用
+dtpweb 接口需要配合打印机厂家提供的 http 打印助手来进行打印，所以在使用前
+需要检测打印助手是否可用。该接口检查方法如下：
+功能简介 创建 DTPWeb 对象
+方法原型 check_plugin(ip: str=None) -> bool
+参数名称 ip 待检测目标 IP 地址，默认是本机。
+返回值
+true：检测到本地打印助手，可以进行正常的打印操作。
+false: 未检测到本地打印助手，需要安装打印助手。
+使用说明 无
+4. 连接打印机相关方法
+LPA_Device 打印机设备参数：
+LPA_Device 类型 描述
+LPA_Device. type number 打印机设备类型，默认为 1。
+1：表示本地打印机；
+2：表示局域网其它电脑上的打印机；
+3：表示自带网络功能的打印机。
+LPA_Device. name string 打印机名称
+LPA_Device. ip string 打印机所连接主机的 IP 地址
+LPA_Device. port number 打印机所链接主机的端口号
+LPA_Device. hostname string 打印机所链接主机的主机名称
+4.1 get_printers 获取所有符合要求的打印机
+功能简介 获取配对列表中指定型号名称的所有打印机对象
+=====PAGE 7=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+7 / 29
+方法原型 get_printers(name=None, onlyLocal=None, onlyOnline=None) -> list<LPA_Device>
+参数名称
+name 只获取指定型号的打印机（Window 系统不支持）。
+onlyOnline 是否只获取在线打印机，默认为 true（LInux 系统不支持）。
+onlyLocal
+是否只获取本地打印机。默认为 false, 表示可以获取局域网内的其他符合
+条件的打印机（Linux 系统不支持）。
+返回值 返回指定型号的所有打印机列表。打印机设备具体参数参考：LPA_Device
+使用说明 无
+使用注意
+4.2 open_printer 打开指定的打印机
+功能简介 打开指定的打印机
+方法原型 open_printer(name=None, ip=None, type=None)->bool
+参数名称
+name
+目标打印机名称。
+None 或者空字符串表示打印机没有限制。
+ip 用于连接局域网内其他电脑上的打印机。
+type
+打印机类型，默认为 1。
+1：表示本地打印机；
+2：表示局域网其它电脑上的打印机；
+3：表示自带网络功能的打印机。
+返回值 成功与否
+使用说明 建议相关参数通过 get_printers 函数来获取。
+使用注意 在开始打印任务前，须先调用该方法，或者同系列的方法。
+=====PAGE 8=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+8 / 29
+4.3 get_printer_name 获取已连接打印机名称
+功能简介 获取已连接打印机名称
+方法原型 get_printer_name() -> str
+参数名称 无
+返回值 如果已连接打印机，则返回对应打印机名称，否则返回错误信息。
+使用说明
+使用注意
+4.4 get_param 获取相关打印参数
+LPA_ParamID 相关打印参数类型：
+LPA_ParamID 数值 描述
+LPA_ParamID. gapType 1 纸张类型
+LPA_ParamID. printDarkness 2 打印浓度
+LPA_ParamID. printSpeed 3 打印速度
+LPA_ParamID. printerDPI 4 打印机分辨率
+LPA_GapType 纸张类型：
+LPA_GapType 数值 描述
+LPA_GapType. unset 255 随打印机设置
+LPA_GapType. none 0 连续纸（小票纸）
+LPA_GapType. hole 1 定位孔（已废弃）
+LPA_GapType. gap 2 间隙纸
+LPA_GapType. black 3 黑标纸
+LPA_PrintSpeed 打印速度常用枚举值：
+LPA_PrintSpeed 数值 描述
+LPA_PrintSpeed. unset 255 随打印机设置
+=====PAGE 9=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+9 / 29
+LPA_PrintSpeed. min 0 最慢
+LPA_PrintSpeed. low 1 较慢
+LPA_PrintSpeed. normal 2 正常
+LPA_PrintSpeed. high 3 较快
+LPA_PrintSpeed. max 4 最快
+LPA_PrintDarkness 打印浓度常用枚举值：
+LPA_PrintDarkness 数值 描述
+LPA_PrintDarkness. unset 255 随打印机设置
+LPA_PrintDarkness. min 0 最淡
+LPA_PrintDarkness. low 3 较淡
+LPA_PrintDarkness. normal 5 正常
+LPA_PrintDarkness. high 9 较浓
+LPA_PrintDarkness. max 14 最浓
+功能简介 获取已连接打印机的详细信息
+方法原型 get_param(id: LPA_ParamID) -> int
+参数名称 id 打印参数类型，具体参考：LPA_ParamID。
+返回值 返回对应打印参数的值。
+使用说明 无
+使用注意
+4.5 set_param 设置打印参数
+功能简介 设置相关打印参数
+方法原型 set_param(id: LPA_ParamID, value: int) -> bool
+参数名称
+id 参数 id，具体参考：LPA_ParamID。
+value LPA_ParamID 中对应打印参数所对应的值。
+=====PAGE 10=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+10 / 29
+返回值 成功与否。
+使用说明 无
+使用注意 打印机浓度（LPA_ParamID. printerDPI）只支持获取，不支持设置。
+4.6 get_gap_type 获取已连接打印机的纸张类型
+功能简介 获取已连接打印机的纸张类型
+方法原型 get_gap_type() -> int
+参数名称 无
+返回值 返回当前打印机的纸张类型，值参考：LPA_GapType。
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+4.7 set_gap_type 修改已连接打印机的纸张类型
+功能简介 修改已连接打印机的纸张类型
+方法原型 set_gap_type(value: LPA_GapType) -> bool
+参数名称 value 目标打印机纸张类型，值参考：LPA_GapType
+返回值 成功与否。
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+=====PAGE 11=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+11 / 29
+4.8 get_print_darkness 获取已连接打印机的打印浓度
+功能简介 获取已连接打印机的打印浓度
+方法原型 get_print_darkness() -> int
+参数名称 无
+返回值 返回当前打印机的打印浓度，值参考：LPA_PrintDarkness。
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+4.9 set_print_darkness 修改已连接打印机的打印浓度
+功能简介 修改已连接打印机的打印浓度
+方法原型 set_print_darkness(value: LPA_PrintDarkness) -> bool
+参数名称 value 目标打印机的打印浓度，值参考：LPA_PrintDarkness
+返回值 成功与否。
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+4.10 get_print_speed 获取已连接打印机的打印速度
+功能简介 获取已连接打印机的打印速度
+方法原型 get_print_speed() -> int
+参数名称 无
+返回值 返回当前打印机的打印速度，值参考：LPA_PrintSpeed。
+=====PAGE 12=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+12 / 29
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+4.11 set_print_speed 修改已连接打印机的打印速度
+功能简介 修改已连接打印机的打印速度
+方法原型 set_print_speed(value: LPA_PrintSpeed) -> bool
+参数名称 value 目标打印机的打印速度，值参考：LPA_PrintSpeed
+返回值 成功与否。
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+4.12 get_printer_dpi 获取已连接打印机的分辨率
+功能简介 获取已连接打印机的分辨率
+方法原型 get_printer_dpi() -> int
+参数名称 无
+返回值 返回当前打印机的分辨率，值大于 0 表示获取成功，0 表示获取失败。
+使用说明
+使用注意 调用该接口前需要先打开打印机。
+4.13 is_printer_opened 判断当前打印机是否打开成功
+功能简介 判断当前打印机是否打开成功
+=====PAGE 13=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+13 / 29
+方法原型 is_printer_opened() -> bool
+参数名称 无
+返回值
+true：表示打印机已连接成功，可以进行打印。
+false：表示未连接打印机，在打印之前需要连接打印机。
+使用说明
+使用注意
+4.14 close_printer 断开当前已连接打印机
+功能简介 断开已连接打印机
+方法原型 close_printer() -> bool
+参数名称 无
+返回值 无
+使用说明 在打印完成之后，可以通过该函数来断开当前打印机的连接。
+使用注意 在打印未完成之前尽量避免调用该函数，否则有可能会导致打印任务终止。
+4.15 print_image 打印 BASE64 格式图片
+功能简介 打印 BASE64 格式图片
+方法原型
+printImage(data: str, printerName=None, printWidth=None, printHeight=NOne,
+threshold=None, orientation=None, copies=None, jobName=None) -> bool
+参数名称
+data
+需 要 打 印 的 BASE64 图 片 。 建 议 数 据 带 JS 图 片 数 据
+“data:image/png;base64,”前缀。
+printerName 要连接的目标打印机名称，不指定表示连接检测到的第一台打印机。
+printWidth
+图片打印区域的宽度，单位为毫米，默认为 0，表示按照图片的实际宽度
+来打印。
+=====PAGE 14=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+14 / 29
+printHeight
+图片打印区域的高度，单位认为毫米，默认为 0，表示按照图片的实际高
+度来打印。
+threshold
+绘制位图的灰度阀值。256 表示绘制灰度图片；257 表示绘制原色图片；
+0～255 表示绘制黑白图片，原图颜色>灰度阀值的点会被认为是白色，
+而原图颜色<=灰度阀值的点会被认为是黑色。默认为 192。
+orientation
+图片打印时的打印顺时针旋转角度，0/90/180/270。默认为 0，表示不
+旋转正向打印。
+copies 打印份数。默认为 1。
+jobName 打印任务名称。可以为空。
+返回值 成功与否
+使用说明
+使用注意
+1、 base64 图片背景色建议设置为白色背景色。
+2、 返回成功仅仅表示操作被提交，并不代表着打印成功了，具体的打印结果会通过回调函数给
+出通知。
+4.16 print 通过参数配置方式进行标签的批量打印
+功能简介 通过参数配置方式进行标签的批量打印
+方法原型
+print(action, printerInfo, jobInfo, jobPages, jobArguments=None, jobPage=None)
+-> bool
+参数名称
+action
+0x0001 创建一个用于获取打印指令集的打印任务。
+0x0002 创建一个用于获取 BASE64 图片的预览任务。
+0x0082
+创建一个用户获取透明的色的 BASE64 图片的预览
+任务。
+0x1000 创建一个常规的打印任务。
+printerInfo
+printerName 目标打印机设备名称。
+printerDPI
+打印机分辨率，在生成打印指令集的时候，必须指
+定，否则生成的打印任务与打印机分辨率不匹配的
+话，打印内容会变小。
+printerWidth
+打印头宽度，在获取打印任务指令集的时候必须指
+定，否则可能会打印不全。
+jobInfo
+jobWidth 打印任务的宽度，单位毫米。
+jobHeight 打印任务的高度，单位毫米。
+orientation 打印任务的旋转角度。
+grayThreshold 打印任务的灰度阈值。
+gapType 打印机纸张类型。
+=====PAGE 15=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+15 / 29
+gapLength 打印机纸张间隔长度。
+darkness 打印浓度。
+speed 打印速度。
+jobPages
+jobPages 只一个二维数组，二维数组中的每一条记录表示一张标签，每
+张标签中的每条数据表示一个绘制选项，每一条绘制记录的参数可参考接
+口中对应的 draw 接口。
+每一条绘制记录中都有一个 type 属性，用于区分不同的绘制对象，type
+的内容及绘制对象的对应关系如下：
+type=“text”：绘制字符串对象，参数参考：draw_text 接口；
+type=“barcode”：绘制一维码，参数参考：draw_barcode 接口；
+type=“qrcode”：绘制字 QRCode 二维码，参数参考：draw_qrcode
+接口；
+type=“pdf417”：绘制 PDF417 二维码，参数参考：draw_pdf417 接
+口；
+type= “ dataMatrix ” ： 绘 制 DataMatrix 二 维 码 码 ， 参 数 参 考 ：
+draw_dataMatrix 接口；
+type=“image”：绘制图像对象，参数参考：draw_image 接口；
+type=“rectangle”：绘制矩形对象，具体参数参考：draw_rect 接口；
+type=“ellipse”：绘制椭圆对象，参数参考：draw_ellipse 接口；
+type=“line”：绘制直线对象，参数参考：draw_line 接口；
+jobArguments 关键字列表。
+返回值 成功与否
+使用说明
+使用注意
+5. 打印任务与绘制页面的方法说明
+5.1 start_job 开始绘图任务
+功能简介 开始绘图任务
+方法原型 start_job(width: float, height: float, orientation=None int, jobName =None) -> bool
+参数名称 width 标签宽度（基于绘制视图，不考虑标签旋转，单位毫米）。
+=====PAGE 16=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+16 / 29
+height 标签高度（基于绘制视图，不考虑标签旋转，单位毫米）。
+orientation 绘图任务的标签页面顺时针旋转角度，0/90/180/270，默认值 0。
+jobName 打印任务名称，可以不指定。
+返回值 成功与否
+使用说明 开始一个绘图任务时需调用此方法。
+使用注意
+1、开始绘图任务时，之前的任务/数据将会被全部丢弃。
+2、个别特殊的名称只是用于生成图片，不做打印处理：
+“#!#Transparent#!#”: 用于生成透明底色的图片。
+“#!#Preview#!#”: 用于生成白色底色的图片。
+5.2 commit_job 提交数据打印
+功能简介 提交数据打印
+方法原型
+commit_job(gapType=None, darkness=None, speed=None, orientation=None,
+threshold=None) -> bool
+gapType 纸张类型，值可参考：LPA_GapType。
+darkness 打印浓度，值可参考：LPA_PrintDarkness。
+speed 打印速度，值可参考：LPA_PrintSpeed。
+orientation 打印方向，值一般为：0/90/180/270，默认为 0，表示不旋转。
+threshold 打印任务黑白转换时的阈值，默认为：192。
+返回值 成功与否
+使用说明 提交打印任务，进行真正的打印。
+5.3 start_page 开始绘制一个页面
+功能简介 开始绘制一个页面
+=====PAGE 17=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+17 / 29
+方法原型 start_page() -> bool
+参数名称 无
+返回值 成功与否
+使用说明 开始一个打印页面。
+5.4 end_page 结束一个页面的绘制
+功能简介 结束一个页面的绘制
+方法原型 end_page() -> bool
+参数名称 无
+返回值 无
+使用说明 结束一个打印页面。
+6. 绘制文本字符串方法说明
+LPA_ItemAlignment 数据对齐的几种模式：
+LPA_ItemAlignment 数值 描述
+LPA_ItemAlignment.Start 0 水平居左/垂直居上
+LPA_ItemAlignment.Center 1 水平居中/垂直居中
+LPA_ItemAlignment.End 2 水平居右/垂直居下
+LPA_ItemAlignment.Stretch 3 水平（垂直）拉伸（通过空白填充多余空间）
+LPA_ItemAlignment.Expand 4 放大（通过放大填充多余空间）
+LPA_FontStyle 绘制的字体有如下几种风格：
+LPA_FontStyle 数值 描述
+LPA_FontStyle.Regular 0 正常
+LPA_FontStyle.Bold 1 粗体
+LPA_FontStyle.Italic 2 斜体
+=====PAGE 18=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+18 / 29
+LPA_FontStyle.BoldItalic 3 粗斜体
+LPA_FontStyle.Underline 4 下划线
+LPA_FontStyle.Strikeout 8 删除线
+LPA_AutoReturnMode 字符串的自动换行模式：
+LPA_AutoReturnMode 数值 描述
+LPA_AutoReturnMode. None 0 单行模式，不进行换行
+LPA_AutoReturnMode. Char 1 按字换行
+LPA_AutoReturnMode. Word 2 按词换行
+6.1 pound_to_mm 磅值转换为毫米
+功能简介 磅转换为毫米
+方法原型 pound_to_mm(value: float) -> float
+参数名称 value 待转换的值，单位磅
+返回值 转换后的值，单位毫米
+使用说明 磅与毫米转换通常用于绘制文本的时候进行字体大小的转换。
+6.2 mm_to_pound 毫米转换为磅
+功能简介 毫米转换为磅
+方法原型 mm_to_pound(value: float) -> float
+参数名称 value 待转换的值，单位毫米
+返回值 转换后的值，单位磅
+使用说明 磅与毫米转换通常用于绘制文本的时候进行字体大小的转换。
+=====PAGE 19=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+19 / 29
+6.3 draw_text 绘制文本字符串
+功能简介 绘制文本字符串。
+方法原型 draw_text(text: str, x=None, y=None, width=None, height=None, **kwargs) -> bool
+参数名称
+text 需要绘制的文本字符串。
+x 绘制的文本框以左上角为基准点的水平位置（单位毫米）。
+y 绘制的文本框以左上角为基准点的垂直位置（单位毫米）。
+width
+绘制的文本框水平宽度（单位毫米）。如果 width 为 0，则会根
+据绘制文本的显示宽度，根据当前对齐方式进行以 x 为基准点的
+左中右对齐。
+默认为 0。
+height
+绘制的文本框垂直高度（单位毫米）。如果 height 为 0，则会根
+据绘制文本的显示高度，根据当前对齐方式进行以 y 为基准点的
+上中下对齐。
+默认为 0。
+fontName 绘制字体名称，默认黑体。
+fontHeight 文字大小（单位毫米）。
+fontStyle 字体风格，值参考：LPA_FontStyle。默认为正常字体。
+autoReturn
+字符 串换 行模 式，值 参考 ： LPA_AutoReturnMode ，默 认 为
+LPA_AutoReturnMode.Char, 表示按字换行。
+charSpace 字符间距，默认为 0，单位毫米。
+lineSpace
+行间距，单位为毫米，或为枚举字符串（1_0，1_2，1_5，2_0）。
+默认为 1_0，即单倍行距。
+leadingIndentChars
+根据指定的中文字符个数进行首行缩进。其值可以为小数，比方说
+1.5 表示 1.5 个中文字符 / 3 个英文字符。> 0 表示首行向左缩
+进，< 0 表示首行向右缩进。
+leadingIndentMM
+根据指定的毫米数进行首行缩进。> 0 表示首行向左缩进，< 0 表
+示首行向右缩进。
+leadingIndentColon
+表示首行向左缩进到中文冒号、英文冒号、英文冒号+英文空格。
+horizontalAlignment
+绘制内容的水平对齐方式，值参考：LPA_ItemAlignment，默认
+为 LPA_ItemAlignment.Start，表示居左对齐。
+verticalAlignment
+绘制内容的垂直对齐方式，值参考：LPA_ItemAlignment，默认
+为 LPA_ItemAlignment.Start，表示居上对齐。
+=====PAGE 20=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+20 / 29
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行文本字符串的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+ fontHeight 是以毫米为单位。
+字号和毫米的转换公式为：
+字号 = 毫米 * 72 / 25.4
+比方说 9 号字为 3.175 毫米，12 号字为 4.233 毫米。
+ 本方法会根据字符串数据中包含的字体风格设置符对绘制的文本进行字体风格设置。
+7. 绘制条码方法说明
+LPA_BarcodeType 绘制条码的几种模式：
+BarcodeType 数值 描述
+LPA_BarcodeType.UPC_A 20
+LPA_BarcodeType.UPC_E 21
+LPA_BarcodeType.EAN13 22
+LPA_BarcodeType.EAN8 23
+LPA_BarcodeType.CODE39 24
+LPA_BarcodeType.ITF25 25
+LPA_BarcodeType.CODABAR 26
+LPA_BarcodeType.CODE93 27
+LPA_BarcodeType.CODE128 28
+LPA_BarcodeType.ISBN 29
+LPA_BarcodeType.ECODE39 30
+LPA_BarcodeType.AUTO 60
+LPA_QREccLevel 绘制二维码的集中纠错级别：
+LPA_QREccLevel 数值 描述
+LPA_QREccLevel. EccLevel_L 0
+LPA_QREccLevel. EccLevel_M 1
+LPA_QREccLevel. EccLevel_Q 2
+LPA_QREccLevel. EccLevel_H 3
+LPA_QRTextEncoding 绘制二维码的集中纠错级别：
+=====PAGE 21=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+21 / 29
+LPA_QRTextEncoding 数值 描述
+LPA_QRTextEncoding. Unicode 0
+LPA_QRTextEncoding. Ansi 1
+LPA_QRTextEncoding. UTF8 2
+LPA_P417EccLevel 绘制二维码的集中纠错级别：
+LPA_P417EccLevel 数值 描述
+LPA_P417EccLevel. EccLevel_Auto 0
+LPA_P417EccLevel. EccLevel_1 1
+LPA_P417EccLevel. EccLevel_2 2
+LPA_P417EccLevel. EccLevel_3 3
+LPA_P417EccLevel. EccLevel_4 4
+LPA_P417EccLevel. EccLevel_5 5
+LPA_P417EccLevel. EccLevel_6 6
+LPA_P417EccLevel. EccLevel_7 7
+LPA_P417EccLevel. EccLevel_8 8
+7.1 draw_barcode 绘制 Barcode 一维条码
+功能简介 绘制一维条码
+方法原型
+draw_barcode(text: str, x=None, y=None, width=None, height=None,
+textHeight=None, **kwargs) -> bool
+参数名称
+text 需要绘制的一维条码的内容。
+x 一维条码的左上角水平位置（单位毫米）。
+y 一维条码的左上角垂直位置（单位毫米）。
+width 一维条码的整体显示宽度。
+height 一维条码的显示高度（包括供人识读文本）。
+textHeight
+一维码中供人识读的文本高度（单位毫米），默认为 0，表示
+不显示一维码下面的字符串。
+type 一维条码的编码类型（LPA_BarcodeType)，默认为 AUTO。
+fontName 一维码中供人识读文本的字体名称，默认为”黑体“。
+=====PAGE 22=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+22 / 29
+fontStyle
+一维码中供人识读文本的字体样式，值参考：LPA_FontStyle，
+默认为正常显示。
+textAlignment
+一 维 码 中 供 人 识 读 文 本 的 对 齐 方 式 ， 值 参 考 ：
+LPA_ItemAlignment，默认居中对齐。
+barPixels
+在不指定一维码宽度的情况下，一维码中每个逻辑点的像素
+大小，单位像素，值为 1 - 7 之间的任意值，默认为 2。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+horizontalAlignment
+绘制内容的水平对齐方式，值参考：LPA_ItemAlignment，
+默认为 LPA_ItemAlignment.Start，表示居左对齐。
+verticalAlignment
+绘制内容的垂直对齐方式，值参考：LPA_ItemAlignment，
+默认为 LPA_ItemAlignment.Start，表示居上对齐。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行一维条码的绘制。
+ 绘制的左上角水平垂直位置、宽度、高度是基于当前绘制页面的水平垂直方向。
+7.2 draw_qrcode 绘制 QRCode 二维码
+功能简介 绘制 QRCode 二维码
+方法原型
+draw_qrcode(text: str, x=None, y=None, width=None, height=None, **kwargs) ->
+bool
+参数名称
+text 需要绘制的 QRCode 二维码的内容。
+x QRCode 二维码的左上角水平位置（单位毫米）。
+y QRCode 二维码的左上角垂直位置（单位毫米）。
+width QRCode 二维码的水平宽度（单位毫米）。
+height QRCode 二维码的垂直高度（单位毫米），不指定表示宽高相等。
+textEncoding
+二维码字符串的编码方式，值参考：LPA_QRTextEncoding，默
+认为：LPA_QRTextEncoding.UTF8。
+eccLevel
+二 维 码 纠 错 级 别 ， 值 参 考 ： LPA_QREccLevel ， 默 认 为
+LPA_QREccLevel_EccLevel_L 。
+qrcPixels
+二维码每个逻辑点的像素个数。默认为 0，表示根据显示宽度自
+动计算。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+=====PAGE 23=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+23 / 29
+horizontalAlignment
+绘制内容的水平对齐方式，值参考：LPA_ItemAlignment，默
+认为 LPA_ItemAlignment.Start，表示居左对齐。
+verticalAlignment
+绘制内容的垂直对齐方式，值参考：LPA_ItemAlignment，默
+认为 LPA_ItemAlignment.Start，表示居上对齐。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行 QRCode 二维码的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+7.3 draw_pdf417 绘制 Pdf417 二维码
+功能简介 绘制 Pdf417 二维码
+方法原型
+draw_pdf417(text: str, x=None, y=None, width=None, height=None, **kwargs) ->
+bool
+参数名称
+text 需要绘制的 Pdf417 二维码的内容。
+x Pdf417 二维码的左上角水平位置（单位毫米）。
+y Pdf417 二维码的左上角垂直位置（单位毫米）。
+width Pdf417 二维码的水平宽度（单位毫米）。
+height Pdf417 二维码的垂直高度（单位毫米）。
+p417Pixels
+二维码每个逻辑点的像素个数，默认为 0，表示根据显示宽度自
+动计算。
+eccLevel 二维码纠错级别，值参考：LPA_P417EccLevel，默认为 Auto。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+horizontalAlignment
+绘制内容的水平对齐方式，值参考：LPA_ItemAlignment，默
+认为 LPA_ItemAlignment.Start，表示居左对齐。
+verticalAlignment
+绘制内容的垂直对齐方式，值参考：LPA_ItemAlignment，默
+认为 LPA_ItemAlignment.Start，表示居上对齐。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行 Pdf417 二维码的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+=====PAGE 24=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+24 / 29
+8. 矢量图的绘制方法说明
+8.1 draw_rect 以指定的线宽，绘制矩形框
+功能简介 以指定的线宽，绘制矩形框
+方法原型 draw_rect(x=None, y=None, width=None, height=None, **kwargs) -> bool
+参数名称
+x 矩形框的左上角水平位置（单位 mm）。
+y 矩形框的左上角垂直位置（单位 mm）。
+width 矩形框的水平宽度（单位 mm）。
+height 矩形框的垂直高度（单位 mm）。
+lineWidth 矩形框的线宽（单位 mm）。矩形框的线宽是向矩形框内部延伸的。
+cornerWidth 圆角宽度（单位 mm）。不指定表示绘制常规矩形。
+cornerHeight 圆角高度（单位 mm），默认为同 cornerWidth。
+fill 是否需要绘制填充矩形。默认为 false，表示只绘制矩形边框。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行矩形框的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+8.2 draw_ellipse 以指定的线宽，绘制圆/椭圆
+功能简介 以指定的线宽，绘制圆/椭圆
+方法原型 draw_ellipse(x=None, y=None, width=None, height=None, **kwargs) -> bool
+参数名称 x 椭圆的左上角水平位置（单位 mm）。
+=====PAGE 25=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+25 / 29
+y 椭圆的左上角垂直位置（单位 mm）。
+width 椭圆的水平宽度（单位 mm）。
+height 椭圆的垂直高度（单位 mm），默认为同 width，即绘制圆。
+lineWidth 椭圆的线宽（单位 mm）。椭圆的线宽是向椭圆内部延伸的。
+fill 是否需要绘制填充矩形。默认为 false，表示只绘制矩形边框。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行圆/椭圆的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+ width 和 height 相等时就是绘制圆。
+8.3 draw_circle 以指定的位置为中心，绘制圆
+功能简介 以指定位置为中心，绘制圆
+方法原型 draw_circle(x=None, y=None, radius=None, lineWidth=None, fill=None) -> bool
+参数名称
+x 圆的 x 轴中心位置（单位 mm）。
+y 圆的 y 轴中心位置（单位 mm）。
+radius 圆的半径（单位 mm）。
+lineWidth 圆的线宽（单位 mm）。圆的线宽是向圆内部延伸的。
+fill 是否绘制填充圆？默认 false，表示只绘制圆形边框。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行圆的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+=====PAGE 26=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+26 / 29
+8.4 draw_line 绘制线（直线/斜线）
+功能简介 绘制线（直线/斜线）
+方法原型 draw_line(x1=None, y1=None, x2=None, y2=None, **kwargs) -> bool
+参数名称
+x1 线起点的水平位置（单位 mm），值默认为 0。
+y1 线起点的垂直位置（单位 mm），值默认为 0。
+x2 线终点的水平位置（单位 mm），值默认为 x1。
+y2 线终点的垂直位置（单位 mm），值默认为 y1。
+lineWidth 线宽（单位 mm）。线宽是向线的下方延伸的。
+dashLens 虚线段数组（单位 mm），不指定或者空数组表示绘制直线。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行直线/斜线的绘制。
+ 绘制的水平垂直位置是基于当前绘制页面的水平垂直方向。
+9. 图片绘制方法说明
+9.1 draw_image 绘制指定文件的图片
+功能简介 绘制指定文件的图片
+方法原型
+drawImage(imageFile: str, x=None, y=None,width=None, height=None, **kwargs)
+-> bool
+参数名称
+opts.imageFile 图片路径。
+x 打印对象在水平方向上的位置（单位 mm）。
+y 打印对象在垂直方向上的位置（单位 mm）。
+width
+打印对象的宽度（单位 mm）。如果 width 为 0，则采用加载的位
+图的宽度。默认为 0。
+=====PAGE 27=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+27 / 29
+height
+打印对象的高度（单位 mm）。如果 height 为 0，则采用加载的位
+图的高度。默认为 0。
+threshold
+绘制位图的灰度阀值。256 表示绘制灰度图片；257 表示绘制原色图
+片；0～255 表示绘制黑白图片，原图颜色>灰度阀值的点会被认为是
+白色，而原图颜色<=灰度阀值的点会被认为是黑色。默认为 192。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行图片的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+9.2 draw_mage_data 绘制 BASE64 格式的图片
+功能简介 绘制 BASE64 格式的图片
+方法原型
+draw_image_data(data: str, x=None, y=None, width=None, height=None,
+**kwargs) -> bool
+参数名称
+data
+需 要 绘 制 的 图 片 的 base64 格 式 数 据 。 建 议 数 据 带 JS 图 片 数 据
+“data:image/png;base64,”前缀。
+x 位图的左上角水平位置（单位 mm）。
+.y 位图的左上角垂直位置（单位 mm）。
+width
+位图的水平宽度（单位 mm）。如果 width 为 0，则采用加载的位图的
+宽度。默认为 0。
+height
+位图的垂直高度（单位 mm）。如果 height 为 0，则采用加载的位图
+的高度。默认为 0。
+threshold
+绘制位图的灰度阀值。256 表示绘制灰度图片；257 表示绘制原色图片；
+0～255 表示绘制黑白图片，原图颜色>灰度阀值的点会被认为是白色，
+而原图颜色<=灰度阀值的点会被认为是黑色。默认为 192。
+orientation 绘制内容的旋转角度，0/90/180/270，默认值 0。
+返回值 成功与否
+使用说明
+ 如果之前没有调用 startPage 而直接调用本方法，则本方法会自动调用 startPage 开始绘
+制一个页面，然后进行位图的绘制。
+ 绘制的左上角水平垂直位置、水平宽度、垂直高度是基于当前绘制页面的水平垂直方向。
+ 位图绘制时会被缩放到指定的宽度和高度。
+=====PAGE 28=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+28 / 29
+=====PAGE 29=====
+DothanTech 玄码 dtpweb（PC Python3）打印接口说明
+29 / 29
+文档修改记录
+序号 版本号 修改内容 修改者 修改日期
+1 V0.1.20210427 文档建立 杨玲美 2021-04-27
+2 V0.2.20170812 根据实际代码，进行同步更新 胡殿兴 2017-08-12
+3 V1.0.20171010 接口完善，正式发布 胡殿兴 2017-10-10
+4 V1.1.20171111 文档检测与优化 杨玲美 2017-11-11
+5 V1.2.20190330 新增打印参数相关文档 胡殿兴 2019-03-30
+6 V1.3.20190401 修改文档格式 杨玲美 2019-04-01
+7 V2.0.20220309
+接口结构升级，采用对象是传参以及异步请
+求方式进行 http 请求
+胡殿兴 2022-03-09
+8 V2.1.20220627 增加 Linux 系统的兼容适配 胡殿兴 2022-06-27

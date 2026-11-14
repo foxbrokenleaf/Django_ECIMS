@@ -1,0 +1,7 @@
+# ECIMS 运行依赖（Windows / Python 3.11）
+Django==5.0
+Jinja2==3.1.6
+Pillow==12.3.0
+
+# 标签打印 SDK：由标签打印机厂商提供 wheel 安装（如 dtpweb-2.5.20250212-*.whl）
+dtpweb==2.5.20250212

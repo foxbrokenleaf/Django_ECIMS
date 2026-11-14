@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% from "components/_form_field.html" import form_field %}
+{% block title %}{% if action == 'create' %}新建标签模板{% else %}编辑标签模板{% endif %} · ECIMS{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{{ url('labels:home') }}" class="text-decoration-none">标签打印</a></li>
+        <li class="breadcrumb-item"><a href="{{ url('labels:template_list') }}" class="text-decoration-none">标签模板</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if action == 'create' %}新建{% else %}编辑{% endif %}
+        </li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+    <div>
+        <h1 class="h5 mb-1 fw-semibold">
+            <i class="bi bi-sliders text-primary me-2"></i>
+            {% if action == 'create' %}新建标签模板{% else %}编辑标签模板{% endif %}
+        </h1>
+        <p class="text-muted small mb-0">
+            {% if action == 'edit' %}
+                {{ template.name }}（{{ template.width_mm }}×{{ template.height_mm }}mm）
+            {% else %}
+                配置标签尺寸、打印字段与二维码内容，保存后即可在打印页面选用。
+            {% endif %}
+        </p>
+    </div>
+    <a href="{{ url('labels:template_list') }}" class="btn btn-light border">
+        <i class="bi bi-arrow-left me-1"></i> 返回模板列表
+    </a>
+</div>
+
+<form method="post" novalidate>
+    {{ csrf_input }}
+
+    {% if form.non_field_errors() %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors() %}<div>{{ error }}</div>{% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-info-circle text-primary me-2"></i>基本信息
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">{{ form_field(form.name) }}</div>
+                <div class="col-md-3 mb-3">{{ form_field(form.width_mm) }}</div>
+                <div class="col-md-3 mb-3">{{ form_field(form.height_mm) }}</div>
+                <div class="col-md-6 mb-3">{{ form_field(form.font_name) }}</div>
+                <div class="col-12 mb-0">{{ form_field(form.description) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-qr-code text-primary me-2"></i>二维码
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                        {{ form.include_qr }}
+                        <label class="form-check-label" for="{{ form.include_qr.id_for_label }}">
+                            {{ form.include_qr.label }}
+                        </label>
+                    </div>
+                    <div class="form-text">{{ form.include_qr.help_text }}</div>
+                    {% for error in form.include_qr.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-8 mb-3">{{ form_field(form.qr_content) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-list-check text-primary me-2"></i>打印字段
+            <span class="text-muted small ms-2">元件名称与型号始终打印</span>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for field in [form.show_value, form.show_package, form.show_stock,
+                                 form.show_location, form.show_batch, form.show_manufacturer,
+                                 form.show_category] %}
+                    <div class="col-md-4 mb-2">
+                        <div class="form-check">
+                            {{ field }}
+                            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white py-3 fw-semibold">
+            <i class="bi bi-gear text-primary me-2"></i>打印与启用
+        </div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-4 mb-3">{{ form_field(form.default_copies) }}</div>
+                <div class="col-md-4 mb-3">
+                    <div class="form-check">
+                        {{ form.is_default }}
+                        <label class="form-check-label" for="{{ form.is_default.id_for_label }}">
+                            {{ form.is_default.label }}
+                        </label>
+                    </div>
+                    <div class="form-text">{{ form.is_default.help_text }}</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            {{ form.is_active.label }}
+                        </label>
+                    </div>
+                    <div class="form-text">{{ form.is_active.help_text }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url('labels:template_list') }}" class="btn btn-light border">取消</a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check2-circle me-1"></i>
+            {% if action == 'create' %}创建模板{% else %}保存修改{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}
+

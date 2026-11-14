@@ -144,6 +144,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {{ nav_active('labels:home', 'labels:history', 'labels:template', 'labels:preview', 'labels:scan') }}"
+                       href="{{ url('labels:home') }}">
+                        <i class="bi bi-tags"></i> 标签打印
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {{ nav_active('accounts:dashboard', 'accounts:user_create', 'accounts:superuser_create') }}"
                        href="{{ url('accounts:dashboard') }}">
                         <i class="bi bi-people"></i> 用户中心

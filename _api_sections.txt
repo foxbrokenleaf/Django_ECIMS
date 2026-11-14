@@ -1,0 +1,365 @@
+116:         """
+117:         判断当前的数据发送方式是不是JSON方式。
+118:             JSON方式可以可以在一次请求中发送所有数据;
+119:             非JSON方式在调用接口的时候会单独发送；
+120:         """
+121:         json_mode = self.__jsonPrintInfo["jsonMode"] if self.__jsonPrintInfo and isinstance(self.__jsonPrintInfo, dict) else False
+122:         return json_mode if json_mode else self.__jsonMode
+123: 
+124:     def check_plugin(self, ip=None):
+125:         """
+126:         检查插件是否可用
+127:         :param ip: 待检测目标ip
+128:         :return:
+129:         """
+130:         # 检测端口1是否可用
+131:         result = self.check_port(utils.DEFAULT_PORT1, ip)
+132:         if not result:
+133:             result = self.check_port(utils.DEFAULT_PORT2, ip)
+134:         #
+135:         print("★★★ 打印助手运行正常 ★★★" if result else "★★★ 未检测到打印助手 ★★★")
+136:         print()
+137:         return result
+138: 
+139:     def check_port(self, port=None, ip=None):
+140:         """
+141:         检测指定的端口号是否可用
+142:         :param port:
+143:         :param ip:
+144:         :return:
+145:         """
+146:         print("<<< ----- DTPWeb request: checkPort({}) ----- >>>".format(port))
+147:         ip = self.get_host(ip)
+148:         url = "{0}/{1}".format(utils.CONTROL_LOCAL, utils.ACTION_ServerInfo)
+149:         #
+150:         resp = utils.http_request(url=url, host=ip, port=port)
+151:         print("----- onResponse of check_port -----")
+152:         print(resp)
+153:         print("[[[[[ --------------------------------------- ]]]]]\n")
+154:         if isinstance(resp, dict) and resp[utils.RESP_STATUS_CODE] < utils.LPA_RESULT_NETWORK_FAILD:
+155:             # 检测成功
+156:             result_info = resp[utils.RESP_RESULT_INFO]
+157:             self.set_server_info(result_info)
+158:             # 保存目标IP与端口号
+159:             if ip:
+160:                 self.__init_ip = ip
+161:             if port:
+162:                 self.__init_port = port
+163:             return True
+164:         #
+165:         return False
+166: 
+167:     def request_api(self, action, ip=None, port=None, method=None, deviceType=None, control=None, data=None, postData=None, contentType=None,
+168:                     timeout=None):
+169:         """
+170:         发送指定的HTTP请求
+171:         :param action: 请求方法。
+172:         :param ip: 请求目标IP地址。
+173:         :param port: 请求目标端口号。
+174:         :param method: 请求方法类型。
+175:         :param deviceType: 目标打印机类型。
+176:         :param control: 请求控制器。
+177:         :param data: 请求数据。
+178:         :param postData: POST请求数据内容。
+179:         :param contentType: POST请求数据类型。
+180:         :param timeout: 请求超时时间。
+181: 
+182:         :return dict: http请求结果
+183:         """
+184:         print("<<< ----- DTPWeb request: {0} ----- >>>".format(action))
+185:         print(data)
+186:         #
+187:         ip = self.get_host(ip)
+188:         port = self.get_port(port)
+189:         control = control if control else utils.CONTROL_LPAPI
+190:         method = method if method else utils.METHOD_POST
+191:         data = data if isinstance(data, dict) else None
+192:         # deviceType = deviceType if isinstance(deviceType, int) and deviceType > 0 else 1
+193:         #
+194:         if not postData and isinstance(data, dict) and "data" in data:
+195:             postData = data["data"]
+196:             del data["data"]
+197:         # 获取get请求参数
+198:         get_param = utils.url_encode(data) if isinstance(data, dict) else None
+199:         # 获取post请求参数
+200:         if not postData:
+481:         return self.get_param(LPA_PID_PRINT_SPEED)
+482: 
+483:     def set_printer_dpi(self, value):
+484:         """ 设置预览模式下的默认图片分辨率 """
+485:         return self.set_param(LPA_PID_PRINTER_DPI, value)
+486: 
+487:     ##############################################
+488:     # 绘制相关接口；
+489:     ##############################################
+490: 
+491:     def start_job(self, width, height, orientation=0, jobName="dtpweb-python", jsonMode=None, action=None, **kwargs):
+492:         """
+493:         创建打印任务。
+494: 
+495:         创建打印任务时，如果没有链接打印机，则本函数会自动打开当前系统安装的第一个支持的打印机，用于打印。
+496:         当前还有未打印的任务，已有打印数据将会被全部丢弃。
+497: 
+498:         :param width: 标签宽度，单位毫米。
+499:         :param height: 标签高度，单位毫米。
+500:         :param orientation: 标签旋转方向，默认为0，表示不旋转。
+501:         :param jobName: 打印任务名称。
+502:         :param kwargs:
+503:         :return:
+504:         """
+505:         options = utils.get_request_data(locals())
+506:         if options.get("height") == None:
+507:             options["height"] = options["width"]
+508:         if options.get("jobName") == None:
+509:             options["jobName"] = utils.LPA_JobNames.Print.value
+510:         # 
+511:         jsonMode = options["jsonMode"] if options.get("jsonMode") != None else self.__jsonMode
+512:         jobWidth = options.get("width", 0)
+513:         jobHeight = options.get("height", jobWidth)
+514:         if not jsonMode:
+515:             # 将绘制相关单位转换为0.01毫米
+516:             options["scaleUnit"] = 1
+517:             options["width"] = jobWidth * 100
+518:             options["height"] = jobHeight * 100
+519:         # 
+520:         printerName = options.get("printerName", self.__deviceName)
+521:         printerInfo = {
+522:             "printerName": printerName,
+523:             "printerDPI": options.get("printerDPI", None),
+524:             "printerWidth": options.get("printerWidth", None)
+525:         }
+526:         # 
+527:         self.__jsonPrintResult = None
+528:         self.__jsonPrintInfo = {
+529:             "jsonMode": jsonMode,
+530:             "action": options.get("action", 0x1000),
+531:             "jobInfo": {
+532:                 "jobWidth": jobWidth,
+533:                 "jobHeight": jobHeight,
+534:                 "orientation": options.get("orientation", 0),
+535:                 "jobName": options.get("jobName", "dtpweb-python")
+536:             },
+537:             "printerInfo": utils.filter_none_of_dict(printerInfo),
+538:             "jobPages": [],
+539:             "jobArguments": options.get("jobArguments", None)
+540:         }
+541:         if jsonMode:
+542:             return self.start_page()
+543:         else:
+544:             resp = self.request_api(utils.ACTION_StartJob, data=options)
+545:             if resp[RESP_STATUS_CODE] == LPA_RESULT_OK:
+546:                 self.__pageInfo = []
+547:                 return True
+548:             else:
+549:                 return False
+550: 
+551:     def start_page(self):
+552:         """开始新的一页"""
+553:         if not self.__jsonPrintInfo:
+554:             return False
+555:         # 如果打印页面已经创建，则直接返回
+556:         if self.__pageInfo and isinstance(self.__pageInfo, list) and len(self.__pageInfo) <= 0:
+557:             return True
+558:         # 如果打印页面已经存在，并且有数据，则提交打印页面，然后重新创建打印页面
+559:         if self.__pageInfo and isinstance(self.__pageInfo, list) and len(self.__pageInfo) > 0:
+560:             self.end_page()
+561:         #
+562:         self.__pageInfo = []
+563:         # 
+564:         if self.is_json_mode():
+565:             return True
+566:         else:
+567:             resp = self.request_api(utils.ACTION_StartPage)
+568:             return resp.statusCode == 0 if resp and isinstance(resp, dict) else False
+569: 
+570:     def end_page(self):
+571:         """结束页面信息，用于多页打印"""
+572:         if self.__jsonPrintInfo == None or self.__pageInfo == None:
+573:             return False
+574:         # self.__pageInfo == None，说明 pageInfo中有数据
+575:         jobPages = self.__jsonPrintInfo["jobPages"]
+576:         jobPages.append(self.__pageInfo)
+577:         # 
+578:         self.__pageInfo = None
+579:         # 
+580:         if self.is_json_mode():
+581:             return True
+582:         else:
+583:             return self.request_api(utils.ACTION_EndPage)
+584: 
+585:     def commit_job(self, **kwargs):
+586:         """
+587:         提交打印任务，进行真正的打印。
+588: 
+589:         :param kwargs: 其他关键字参数
+590:         {
+591:             gapType: int,       // 纸张类型，默认随打印机设置。
+592:             printDarkness: int, // 打印浓度，默认随打印机设置。
+593:             printSpeed: int,    // 打印速度，默认随打印机设置。
+594:             orientation: int,   // 打印方向，默认为`0`。`0`表示不旋转，`90`表示右转90度，`180`表示进行180度旋转，`270`表示左转90度。
+595:             threshold: int,     // 图片进行黑白转换时的阈值。
+596:         }
+597:         """
+598:         if not self.__jsonPrintInfo:
+599:             return False
+600:         # 
+601:         options = utils.get_request_data(locals())
+602:         if self.is_json_mode():
+603:             self.end_page()
+604:             action = options["action"] if options and "action" in options else self.__jsonPrintInfo["action"]
+605:             printerInfo = self.__jsonPrintInfo.get("printerInfo", {})
+606:             jobInfo = self.__jsonPrintInfo.get("jobInfo", {})
+607:             jobPages = self.__jsonPrintInfo.get("jobPages", [])
+608:             jobArguments = options["jobArguments"] if "jobArguments" in options else self.__jsonPrintInfo.get("jobArguments", None)
+609:             # 
+610:             if options:
+611:                 jobInfo.update(options)
+612:             # 
+613:             self.__jsonPrintResult = self.print(action=action, printerInfo=printerInfo, jobInfo=jobInfo, jobPages=jobPages, jobArguments=jobArguments)
+614:             return self.__jsonPrintResult
+615:         else:
+616:             resp = self.request_api(utils.ACTION_CommitJob, data=options)
+617:             return resp["resultInfo"] if resp and isinstance(resp, dict) and resp["statusCode"] == 0 else None
+618: 
+619:     def get_page_info(self):
+620:         """
+621:         得到刚完成的打印任务的打印任务信息。
+622:         """
+623:         resp = self.request_api(utils.ACTION_GetPageInfo)
+624:         return resp[RESP_RESULT_INFO] if resp[RESP_STATUS_CODE] == LPA_Result.OK else None
+625: 
+626:     def get_page_image(self, page=None):
+627:         """获取当前打印任务中指定页的图片"""
+628:         options = locals()
+629:         if isinstance(options["page"], int):
+630:             options["page"] = 0
+631:         resp = self.request_api(utils.ACTION_GetPageImage, data=options)
+632:         return resp[RESP_RESULT_INFO] if resp[RESP_STATUS_CODE] == LPA_Result.OK else None
+633: 
+634:     ##########################
+635:     # 在画板上绘制相关对象
+636:     ##########################
+637: 
+638:     def draw_text(self, text, x=None, y=None, width=None, height=None, fontHeight=None, fontStyle=None, fontName=None,
+639:                   autoReturn=None, charSpace=None, lineSpace=None, leadingIndent=None, leadingIndentChars=None,
+640:                   leadingIndentMM=None, leadingIndentColon=None, regionCorners=None, regionLeftUpCorner=None,
+641:                   regionRightUpCorner=None, regionRightBottomCorner=None, regionLeftBottomCorner=None,
+642:                   regionLeftBorders=None, regionRightBorders=None, onlyMeasureText=None,
+643:                   horizontalAlignment=None, verticalAlignment=None, orientation=None, **kwargs):
+644:         """
+645:         绘制文本字符串
+646: 
+647:         regionCorners regionLeftUpCorner regionRightUpCorner regionRightBottomCorner
+648:          regionLeftBottomCorner regionLeftBorders regionRightBorders，这些参数都是长度
+649:          数组，建议都是通过数组来传递参数，这样接口会对长度都自动转发为接口使用的 0.01mm 的
+650:          单位。为了调试方便，这些参数也支持逗号分隔的字符串方式来参数。但是此时参数必须调用者
+651:          自己转发为 0.01mm 为单位的长度数据。
+652: 
+653:         :param text: 待绘制的文本数据。
+654:         :param x: 水平方向上的坐标位置，单位毫米，值默认为0。
+655:         :param y: 垂直方向上的坐标位置，单位毫米，值默认为0。
+656:         :param width: 字符串显示区域宽度，单位毫米，值默认为0，表示不限制宽度。
+657:         :param height: 字符串显示区域高度，单位毫米，值默认为0，表示不限制高度。
+658:         :param fontHeight: 字符串字体高度，单位毫米，值必须大于0。
+659:         :param fontName: 字体名称，默认为黑体。
+660:         :param fontStyle: 字体样式，默认为常规字体。
+661:         :param autoReturn: 自动换行模式，默认为 LPA_AutoReturnMode.Char，表示按字符换行。
+662:         :param charSpace: 字符间距，默认为0，单位毫米。
+663:         :param lineSpace: 行间距，单位毫米，或者字符串（1_0，1_2，1_5，2_0）。默认为 1_0，也即单倍行距。
+664:         :param leadingIndent: 首行缩进的四个参数，默认为0。四选一，leadingIndent 具有最高优先级。
+665:                                 0         : 表示没有首行缩进；
+666:                                 1 ~ 999   : 表示首行向左缩进 N/10 个中文字符个数（字符高度）
+667:                                 1000      ：表示首行向左缩进到中文冒号、英文冒号、英文冒号+英文空格
+668:                                 > 1000    ：表示首行向左缩进 (N - 1000) 的 ScaleUnit
+669:                                 -999 ~ -1 : 表示首行向右缩进 -N/10 个中文字符个数（字符高度）
+670:                                 < -1000   ：表示首行向右缩进 (-N - 1000) 的 ScaleUnit
+671:         :param leadingIndentChars: 根据指定的中文字符个数进行首行缩进。
+672:                                     其值可以为小数，比方说 1.5表示 1.5 个中文字符 / 3 个英文字符。> 0 表示首行向左缩进，< 0表示首行向右缩进。
+673:         :param leadingIndentMM: 根据指定的毫米数进行首行缩进。> 0 表示首行向左缩进，< 0 表示首行向右缩进。
+674:         :param leadingIndentColon: 表示首行向左缩进到中文冒号、英文冒号、英文冒号+英文空格。
+675:         :param regionCorners: 显示区域四个角的删除矩形，分别为左上、右上、右下、左下，格式为:
+676:                                 `[Width, Height, Width, Height, Width, Height, Width, Height]`，单位毫米。
+677:         :param regionLeftUpCorner: 显示区域左上角的删除矩形，格式为：`[Width, Height]`，单位毫米。
+678:         :param regionRightUpCorner: 显示区域右上角的删除矩形，格式为：`[Width, Height]`，单位毫米。
+679:         :param regionRightBottomCorner: 显示区域右下角的删除矩形，格式为：`[Width, Height]`，单位毫米。
+680:         :param regionLeftBottomCorner: 显示区域左下角的删除矩形，格式为：`[Width, Height]`，单位毫米。
+681:         :param regionLeftBorders: 显示区域左边的删除矩形，最多支持删除两个矩形，
+682:                                     格式为：`[Width, Y, Height, Width, Y, Height]`，单位毫米。
+683:         :param regionRightBorders: 显示区域右边的删除矩形，最多支持删除两个矩形，
+684:                                     格式为：`[Width, Y, Height, Width, Y, Height]`，单位毫米。
+685:         :param onlyMeasureText: 表示仅仅度量、而不真正绘制文本。
+686:         :param horizontalAlignment: 对象显示水平对齐方式，在指定了宽度的情况下有效。
+687:         :param verticalAlignment: 对象显示垂直对齐方式，在指定了高度的情况下生效。
+688:         :param orientation: 设置绘制对象的旋转角度，值为0、90、180、270。默认为0，表示不做任何旋转处理。
+689:         :param kwargs: 关键字参数
+690:         {
+691:         }
+692:         """
+693:         if self.__jsonPrintInfo == None or self.__pageInfo == None:
+694:             return False
+695:         # 
+696:         options = utils.get_request_data(locals())
+697:         options["fontName"] = self.get_font_name(fontName)
+698:         options = utils.convert_of_text(options, 0 if self.is_json_mode() else 1)
+699:         options = utils.filter_none_of_dict(options)
+700:         self.__pageInfo.append(options)
+701:         #
+702:         if self.is_json_mode():
+703:             options["type"] = "text"
+704:             return True
+705:         else:
+706:             resp = self.request_api(utils.ACTION_DrawText, data=options)
+707:             return resp[RESP_STATUS_CODE] == LPA_RESULT_OK
+708: 
+709:     def draw_qrcode(self, text, x=None, y=None, width=None, height=None, eccLevel=None, qrcPixels=None,
+710:                     horizontalAlignment=None, verticalAlignment=None, orientation=None, **kwargs):
+711:         """
+712:         绘制二维码
+713: 
+714:         :param text: 二维码内容。
+715:         :param x: 绘制对象的水平坐标位置，单位毫米。
+716:         :param y: 绘制对象的垂直坐标位置，单位毫米。
+717:         :param width: 绘制对象的显示宽度，单位毫米。
+718:                     值默认为0，表示根据 {@link qrcPixels} 设定的点的大小自动计算二维码大小。
+719:         :param height: 绘制对象的显示高度，不指定表示按照：{@link width} 来显示，单位毫米。
+720:         :param eccLevel: 二维码纠错模式，值参考{@link LPA_QREccLevel}，默认为{@link LPA_QREccLevel.EccLevel_L}。
+721:         :param qrcPixels: 表示在不指定二维码显示宽度的情况下，二维码每个逻辑点的像素个数，默认为2个像素。
+722:         :param horizontalAlignment: 对象显示水平对齐方式，在指定了宽度的情况下有效。
+723:         :param verticalAlignment: 对象显示垂直对齐方式，在指定了高度的情况下生效。
+724:         :param orientation: 设置绘制对象的旋转角度，值为0、90、180、270。默认为0，表示不做任何旋转处理。
+725:         :param kwargs: 关键字参数：
+726:         {
+727:             textEncoding 字符串编码方式，值参考{@link LPA_QRTextEncoding}，默认为{@link LPA_QRTextEncoding.UTF8}。
+728:             qrcVersion 二维码编码最小版本号，1~40，默认为根据内容自动计算。
+729:             encodeMode 二维码编码模式，值参考{@link LPA_QREncodeMode}，默认为{@link LPA_QREncodeMode.Numeric}。
+730:         }  其他二维码相关参数
+731:         """
+732:         if self.__jsonPrintInfo == None or self.__pageInfo == None:
+733:             return False
+734:         # 
+735:         options = utils.get_request_data(locals())
+736:         self.__pageInfo.append(options)
+737:         # 
+738:         if self.is_json_mode():
+739:             options["type"] = "qrcode"
+740:             return True
+741:         else:
+742:             options = utils.convert_of_base(options)
+743:             resp = self.request_api(utils.ACTION_Draw2DQRCode, data=options)
+744:             return resp[RESP_STATUS_CODE] == LPA_RESULT_OK
+745: 
+746:     def draw_barcode(self, text, x=None, y=None, width=None, height=None, textHeight=None, type=None,
+747:                      fontName=None, fontStyle=None, textAlignment=None, barPixels=None, horizontalAlignment=None,
+748:                      verticalAlignment=None, orientation=None, **kwargs):
+749:         """
+750:         绘制一维码
+751: 
+752:         :param text: 待绘制的一维码数据。
+753:         :param x: 绘制对象的水平坐标位置，单位毫米。值默认为0。
+754:         :param y: 绘制对象的垂直坐标位置，单位毫米。值默认为0。
+755:         :param width: 绘制对象的显示宽度，单位毫米。 值默认为0，表示根据 {@link barWidth} 设定的点的大小自动计算对象宽度。
+756:         :param height: 绘制对象的显示高度，单位毫米。值默认为0，表示根据 {@link barWidth} 设定的点的大小自动计算对象宽度。
+757:         :param textHeight: 一维码中供人识读文本的高度，单位毫米，值默认为0，表示不显示一维码下面的字符串。
+758:         :param type: 一维码类型，默认为{@link LPA_BarcodeType.LPA_1DBT_AUTO}，表示根据字符串自动采用最佳方式。
+759:         :param fontName: 一维码中供人识读文本的字体名称，默认为{@link CONSTANTS.FONT_NAME}。
+760:         :param fontStyle: 一维码供人识读文本的字体风格，默认为{@link LPA_FontStyle.Regular}，表示显示常规字体样式。

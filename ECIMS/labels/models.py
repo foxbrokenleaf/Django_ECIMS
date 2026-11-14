@@ -1,3 +1,166 @@
-from django.db import models
+"""labels 应用模型：标签模板配置与打印记录。
 
-# Create your models here.
+- ``LabelTemplate``：描述一张标签的物理尺寸、显示哪些元件属性、
+  二维码内容以及默认打印份数，供页面选择并由 ``services`` 组装打印数据。
+- ``LabelPrintRecord``：每次提交打印后按元件落一条记录，便于追溯谁在
+  什么时候、用什么模板、哪台打印机打印了多少份。
+"""
+
+import uuid
+from decimal import Decimal
+
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+from django.db.models import Q
+
+
+class LabelTemplate(models.Model):
+    """标签模板：控制标签尺寸与打印字段。"""
+
+    class QrContent(models.TextChoices):
+        UID = "uid", "唯一标识符 UID（可扫码查询）"
+        MODEL = "model", "型号/料号"
+        NAME_MODEL = "name_model", "元件名称 + 型号"
+
+    name = models.CharField("模板名称", max_length=100, unique=True)
+    description = models.TextField("模板说明", blank=True)
+
+    width_mm = models.DecimalField(
+        "标签宽度(mm)", max_digits=6, decimal_places=1, default=Decimal("40.0"),
+        validators=[MinValueValidator(Decimal("10.0")), MaxValueValidator(Decimal("300.0"))],
+    )
+    height_mm = models.DecimalField(
+        "标签高度(mm)", max_digits=6, decimal_places=1, default=Decimal("30.0"),
+        validators=[MinValueValidator(Decimal("10.0")), MaxValueValidator(Decimal("300.0"))],
+    )
+    font_name = models.CharField(
+        "打印字体", max_length=50, default="黑体",
+        help_text="需为打印机所在电脑已安装的字体，如 黑体、宋体、微软雅黑",
+    )
+
+    include_qr = models.BooleanField("打印二维码", default=True)
+    qr_content = models.CharField(
+        "二维码内容", max_length=20, choices=QrContent.choices, default=QrContent.UID,
+        help_text="选择 UID 时，用手机扫码后可在“扫码查询”页面定位元件",
+    )
+
+    # 各字段是否打印到标签上（元件名称、型号始终打印）
+    show_value = models.BooleanField("显示参数值", default=True)
+    show_package = models.BooleanField("显示封装/安装方式", default=True)
+    show_stock = models.BooleanField("显示库存数量", default=True)
+    show_location = models.BooleanField("显示存放位置", default=True)
+    show_batch = models.BooleanField("显示批次号", default=True)
+    show_manufacturer = models.BooleanField("显示制造商", default=False)
+    show_category = models.BooleanField("显示品类", default=False)
+
+    default_copies = models.PositiveSmallIntegerField(
+        "默认打印份数", default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
+    is_default = models.BooleanField("默认模板", default=False)
+    is_active = models.BooleanField("启用", default=True)
+
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "标签模板"
+        verbose_name_plural = "标签模板"
+        ordering = ["-is_default", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_default"],
+                condition=Q(is_default=True),
+                name="unique_default_label_template",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.name}（{self.width_mm}×{self.height_mm}mm）"
+
+    def save(self, *args, **kwargs):
+        # 先取消其它默认模板，避免触发 unique_default_label_template 约束
+        if self.is_default:
+            others = type(self).objects.filter(is_default=True)
+            if self.pk:
+                others = others.exclude(pk=self.pk)
+            others.update(is_default=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_default(cls):
+        """返回当前默认模板；没有设置默认时退回第一个启用中的模板。"""
+        template = (
+            cls.objects.filter(is_active=True)
+            .order_by("-is_default", "name")
+            .first()
+        )
+        return template
+
+
+
+
+class LabelPrintRecord(models.Model):
+    """标签打印记录：每个元件每次提交打印记一条。"""
+
+    class Status(models.TextChoices):
+        SUCCESS = "success", "打印成功"
+        FAILED = "failed", "打印失败"
+
+    batch_id = models.UUIDField("批次ID", default=uuid.uuid4, db_index=True, editable=False)
+    component = models.ForeignKey(
+        "components.Component",
+        verbose_name="元件",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="label_prints",
+    )
+    # 冗余快照：元件被删除后记录仍可追溯
+    component_name = models.CharField("元件名称", max_length=200, blank=True)
+    component_model = models.CharField("型号/料号", max_length=100, blank=True)
+    component_uid = models.UUIDField("元件UID", null=True, blank=True)
+
+    template = models.ForeignKey(
+        LabelTemplate,
+        verbose_name="标签模板",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="print_records",
+    )
+    template_name = models.CharField("模板名称", max_length=100, blank=True)
+
+    copies = models.PositiveIntegerField("每个元件份数", default=1)
+    printer_name = models.CharField("打印机", max_length=200, blank=True)
+    status = models.CharField(
+        "打印状态", max_length=10, choices=Status.choices, default=Status.SUCCESS,
+    )
+    message = models.TextField("结果信息", blank=True)
+
+    operator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="操作人",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="label_print_records",
+    )
+    created_at = models.DateTimeField("打印时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "标签打印记录"
+        verbose_name_plural = "标签打印记录"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["component", "-created_at"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.component_name or '未知元件'} × {self.copies}"
+            f"（{self.get_status_display()}）"
+        )
+

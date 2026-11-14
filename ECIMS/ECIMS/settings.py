@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "accounts.apps.AccountsConfig",
     "components.apps.ComponentsConfig",
     "requisitions.apps.RequisitionsConfig",
+    "labels.apps.LabelsConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -150,6 +151,17 @@ LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 # messages.error 默认标签是 error，Bootstrap 5 使用 danger 样式
 MESSAGE_TAGS = {message_constants.ERROR: "danger"}
+
+# ---------------------------------------------------------------------------
+# 标签打印（dtpweb）
+# ---------------------------------------------------------------------------
+# dtpweb 打印助手默认监听本机 127.0.0.1；如助手装在局域网另一台电脑，
+# 填写该电脑 IP（不是打印机 IP）。
+DTPWEB_IP = ""
+# 默认打印机名称（与 Windows 设备名称一致）；留空则使用检测到的第一台。
+DTPWEB_DEFAULT_PRINTER = ""
+# 演示模式：True 时不调用打印助手，仅记录打印结果，便于无打印机环境调试。
+DTPWEB_DRY_RUN = False
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

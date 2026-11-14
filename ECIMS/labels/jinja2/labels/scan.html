@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ component.name }} · 扫码查询 · ECIMS{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{{ url('labels:home') }}" class="text-decoration-none">标签打印</a></li>
+        <li class="breadcrumb-item active" aria-current="page">扫码查询</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="text-muted small mb-1">
+                            <i class="bi bi-upc-scan me-1"></i>扫码结果
+                        </div>
+                        <h1 class="h4 mb-1 fw-semibold">{{ component.name }}</h1>
+                        <div class="text-muted">
+                            <code class="text-primary">{{ component.model_number }}</code>
+                            <span class="ms-2">· {{ component.category.full_path }}</span>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        {{ stock_badge(component) }}
+                        <div class="small text-muted mt-2">UID：<code>{{ component.uid }}</code></div>
+                    </div>
+                </div>
+
+                {% if component.is_low_stock %}
+                    <div class="alert alert-danger py-2 small mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        库存已低于安全库存（{{ component.stock_quantity }} / {{ component.safety_stock }} {{ component.unit }}），请及时补货。
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white py-3 fw-semibold">
+                        <i class="bi bi-list-ul text-primary me-2"></i>元件属性
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <tbody>
+                                <tr><th class="ps-3 text-muted fw-normal" style="width: 120px;">参数值</th><td>{{ component.value|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">封装</th><td>{{ component.package|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">安装方式</th><td>{{ component.get_mount_type_display() }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">制造商</th><td>{{ component.manufacturer|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">精度/容差</th><td>{{ component.tolerance|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">额定电压</th><td>{{ component.voltage_rating|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">额定功率</th><td>{{ component.power_rating|default("—", true) }}</td></tr>
+                                <tr>
+                                    <th class="ps-3 text-muted fw-normal">库存</th>
+                                    <td>{{ component.stock_quantity }} {{ component.unit }}
+                                        <span class="text-muted small">（安全库存 {{ component.safety_stock }}）</span>
+                                    </td>
+                                </tr>
+                                <tr><th class="ps-3 text-muted fw-normal">存放位置</th><td>{{ component.storage_location|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">批次号</th><td>{{ component.batch_number|default("—", true) }}</td></tr>
+                                <tr><th class="ps-3 text-muted fw-normal">供应商</th><td>{{ component.supplier|default("—", true) }}</td></tr>
+                                {% if component.extra_specs %}
+                                    {% for key, value in component.extra_specs.items() %}
+                                        <tr><th class="ps-3 text-muted fw-normal">{{ key }}</th><td>{{ value }}</td></tr>
+                                    {% endfor %}
+                                {% endif %}
+                                {% if component.description %}
+                                    <tr><th class="ps-3 text-muted fw-normal">描述</th><td class="small">{{ component.description|linebreaksbr }}</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body d-flex flex-column gap-2">
+                        <div class="fw-semibold mb-1"><i class="bi bi-lightning-charge text-primary me-2"></i>快捷操作</div>
+                        <a href="{{ url('labels:preview', component.pk) }}" class="btn btn-primary">
+                            <i class="bi bi-upc-scan me-1"></i> 预览 / 打印标签
+                        </a>
+                        <a href="{{ url('components:component_detail', component.pk) }}" class="btn btn-light border">
+                            <i class="bi bi-box-seam me-1"></i> 查看完整详情
+                        </a>
+                        <a href="{{ url('labels:home') }}" class="btn btn-light border">
+                            <i class="bi bi-tags me-1"></i> 返回标签打印
+                        </a>
+                        <div class="text-muted small mt-2">
+                            该页面由标签二维码跳转而来，可直接向管理员出示本页信息核对库存。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
