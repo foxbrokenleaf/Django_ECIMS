@@ -2,7 +2,8 @@
 
 页面上的列表都是分页展示的，导出时按当前筛选条件导出全部数据，方便
 离线核对、归档或交给其他系统使用。所有导出共用 ``build_workbook``，
-保证表头样式、列宽、冻结首行与自动筛选等格式一致。
+保证表头样式、列宽、冻结首行与自动筛选等格式一致；传入 ``dual=True``
+时还会把列定义与数据行复制成左右两联，导出到同一个工作表。
 """
 
 import io
@@ -77,14 +78,45 @@ def _safe_sheet_title(title):
     return (cleaned or "导出数据")[:SHEET_TITLE_MAX_LENGTH]
 
 
-def build_workbook(columns, rows, sheet_title="导出数据"):
+# 双联布局：同一工作表左右各一联，表头用 _1/_2 区分
+DUAL_COLUMN_SUFFIXES = ("_1", "_2")
+
+
+def _dual_columns(columns):
+    """把列定义复制成左右两联：序号_1、元件名称_1……序号_2、元件名称_2……"""
+    return [
+        (f"{header}{suffix}", min_width)
+        for suffix in DUAL_COLUMN_SUFFIXES
+        for header, min_width in columns
+    ]
+
+
+def _dual_rows(rows):
+    """把数据行两两合并：第 1、2 条并到同一行，奇数条时右联留空。"""
+    rows = [tuple(row) for row in rows]
+    merged = []
+    for index in range(0, len(rows), 2):
+        right = rows[index + 1] if index + 1 < len(rows) else ()
+        merged.append(rows[index] + right)
+    return merged
+
+
+def build_workbook(columns, rows, sheet_title="导出数据", dual=False):
     """按列定义生成工作簿。
 
     ``columns`` 为 ``(表头, 最小列宽)`` 序列，``rows`` 为与列顺序一致的
     行数据序列；表头、边框、冻结首行与自动筛选在这里统一处理。
+
+    ``dual=True`` 时生成双联表：列定义复制成 ``_1``/``_2`` 两联，数据行
+    两两并排写入同一工作表，便于一张纸上打印两联标签。
     """
     columns = list(columns)
     rows = [tuple(row) for row in rows]
+
+    if dual:
+        columns = _dual_columns(columns)
+        rows = _dual_rows(rows)
+        sheet_title = f"{sheet_title}-双联"
 
     workbook = Workbook()
     workbook.properties.creator = "ECIMS"
@@ -166,14 +198,17 @@ def _component_row(index, component):
     )
 
 
-def build_component_workbook(components):
-    """生成“元件标签清单”工作簿（元件顺序与传入顺序一致）。"""
+def build_component_workbook(components, dual=False):
+    """生成“元件标签清单”工作簿（元件顺序与传入顺序一致）。
+
+    ``dual=True`` 时生成左右两联并排的双联表。
+    """
     rows = [
         _component_row(index, component)
         for index, component in enumerate(components, start=1)
     ]
     return build_workbook(
-        COMPONENT_EXPORT_COLUMNS, rows, sheet_title="元件标签清单",
+        COMPONENT_EXPORT_COLUMNS, rows, sheet_title="元件标签清单", dual=dual,
     )
 
 
@@ -196,14 +231,17 @@ def _print_record_row(index, record):
     )
 
 
-def build_print_record_workbook(records):
-    """生成“标签打印记录”工作簿（记录顺序与传入顺序一致）。"""
+def build_print_record_workbook(records, dual=False):
+    """生成“标签打印记录”工作簿（记录顺序与传入顺序一致）。
+
+    ``dual=True`` 时生成左右两联并排的双联表。
+    """
     rows = [
         _print_record_row(index, record)
         for index, record in enumerate(records, start=1)
     ]
     return build_workbook(
-        PRINT_RECORD_EXPORT_COLUMNS, rows, sheet_title="标签打印记录",
+        PRINT_RECORD_EXPORT_COLUMNS, rows, sheet_title="标签打印记录", dual=dual,
     )
 
 

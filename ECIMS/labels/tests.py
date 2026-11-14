@@ -15,7 +15,11 @@ from openpyxl import load_workbook
 
 from components.models import Category, Component
 
-from .exports import XLSX_CONTENT_TYPE
+from .exports import (
+    COMPONENT_EXPORT_COLUMNS,
+    PRINT_RECORD_EXPORT_COLUMNS,
+    XLSX_CONTENT_TYPE,
+)
 from .forms import LabelPrintSettingsForm
 from .models import LabelPrintRecord, LabelTemplate
 from .services import (
@@ -759,6 +763,56 @@ class LabelExportTests(TestCase):
         self.assertEqual(rows[0][1], "别人的元件")
         self.assertEqual(rows[0][11], "是")
 
+    def test_component_export_supports_dual_layout(self):
+        """双联导出：表头带 _1/_2 后缀，两条元件并排写入同一行。"""
+        self.login()
+        response = self.client.get(
+            reverse("labels:export_components"), {"layout": "dual"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], XLSX_CONTENT_TYPE)
+
+        sheet = self.load_sheet(response)
+        self.assertEqual(sheet.title, "元件标签清单-双联")
+
+        column_count = len(COMPONENT_EXPORT_COLUMNS)
+        headers = [cell.value for cell in sheet[1]]
+        self.assertEqual(len(headers), column_count * 2)
+        self.assertEqual(headers[0], "序号_1")
+        self.assertEqual(headers[1], "元件名称_1")
+        self.assertEqual(headers[column_count], "序号_2")
+        self.assertEqual(headers[column_count + 1], "元件名称_2")
+        self.assertEqual(sheet.freeze_panes, "A2")
+        self.assertIsNotNone(sheet.auto_filter.ref)
+
+        rows = list(sheet.iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 1)
+        # 两条元件并排：左联序号为 1，右联序号为 2
+        self.assertEqual(rows[0][0], 1)
+        self.assertEqual(rows[0][column_count], 2)
+        self.assertEqual(
+            {rows[0][1], rows[0][column_count + 1]},
+            {"贴片电阻", "别人的元件"},
+        )
+
+    def test_component_export_dual_layout_pads_odd_row(self):
+        """元件数为奇数时，最后一行右联留空。"""
+        self.login()
+        response = self.client.get(
+            reverse("labels:export_components"),
+            {"q": "RC0603-10K-EXP", "layout": "dual"},
+        )
+        sheet = self.load_sheet(response)
+        column_count = len(COMPONENT_EXPORT_COLUMNS)
+        rows = list(sheet.iter_rows(min_row=2, values_only=True))
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], 1)
+        self.assertEqual(rows[0][1], "贴片电阻")
+        self.assertTrue(
+            all(value is None for value in rows[0][column_count:])
+        )
+
     def test_history_export_requires_login(self):
         response = self.client.get(reverse("labels:export_history"))
         self.assertEqual(response.status_code, 302)
@@ -795,17 +849,45 @@ class LabelExportTests(TestCase):
         self.assertEqual(rows[0][3], "别人的元件")
         self.assertEqual(rows[0][9], "打印失败")
 
+    def test_history_export_supports_dual_layout(self):
+        """打印记录双联导出：两条记录并排写入同一行。"""
+        self.login(self.admin)
+        response = self.client.get(
+            reverse("labels:export_history"), {"layout": "dual"},
+        )
+        sheet = self.load_sheet(response)
+        self.assertEqual(sheet.title, "标签打印记录-双联")
+
+        column_count = len(PRINT_RECORD_EXPORT_COLUMNS)
+        headers = [cell.value for cell in sheet[1]]
+        self.assertEqual(len(headers), column_count * 2)
+        self.assertEqual(headers[0], "序号_1")
+        self.assertEqual(headers[column_count], "序号_2")
+
+        rows = list(sheet.iter_rows(min_row=2, values_only=True))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], 1)
+        self.assertEqual(rows[0][column_count], 2)
+        self.assertEqual(
+            {rows[0][3], rows[0][column_count + 3]},
+            {"贴片电阻", "别人的元件"},
+        )
+
     def test_pages_show_export_buttons(self):
         self.login()
         home = self.client.get(reverse("labels:home"), {"q": "RC0603"})
         self.assertContains(home, "导出 Excel")
+        self.assertContains(home, "导出双联表格")
         self.assertContains(home, reverse("labels:export_components"))
         self.assertContains(home, "?q=RC0603")
+        self.assertContains(home, "layout=dual")
 
         history = self.client.get(reverse("labels:history"), {"status": "success"})
         self.assertContains(history, "导出 Excel")
+        self.assertContains(history, "导出双联表格")
         self.assertContains(history, reverse("labels:export_history"))
         self.assertContains(history, "?status=success")
+        self.assertContains(history, "layout=dual")
 
 
 

@@ -7,7 +7,8 @@
    每个元件写入一条 ``LabelPrintRecord``；
 3. ``label_preview`` 用与真实打印完全相同的版面数据做页面预览；
 4. ``scan_component`` 供手机扫标签二维码后按 UID 定位元件；
-5. ``export_components`` / ``export_history`` 按当前筛选条件导出 Excel。
+5. ``export_components`` / ``export_history`` 按当前筛选条件导出 Excel，
+   支持 ``?layout=dual`` 导出单工作表双联表。
 """
 
 import uuid
@@ -159,12 +160,23 @@ def home(request):
     })
 
 
+def _is_dual_export(request):
+    """导出版式参数：``layout=dual`` 时输出双联表，默认输出单联表。"""
+    return (request.GET.get("layout") or "").strip() == "dual"
+
+
 @login_required
 def export_components(request):
-    """按当前筛选条件导出元件标签清单为 Excel（不受分页限制）。"""
+    """按当前筛选条件导出元件标签清单为 Excel（不受分页限制）。
+
+    通过 ``?layout=dual`` 可导出双联表：同一工作表左右各一联，
+    每行并排放置两个元件（奇数条时右联留空）。
+    """
     qs, _ = _filter_components(request)
-    workbook = build_component_workbook(qs)
-    return xlsx_response(workbook, export_filename("元件标签清单"))
+    dual = _is_dual_export(request)
+    workbook = build_component_workbook(qs, dual=dual)
+    prefix = "元件标签清单-双联" if dual else "元件标签清单"
+    return xlsx_response(workbook, export_filename(prefix))
 
 
 @login_required
@@ -306,10 +318,15 @@ def label_history(request):
 
 @login_required
 def export_history(request):
-    """按当前筛选条件导出打印记录为 Excel（普通用户仅导出本人记录）。"""
+    """按当前筛选条件导出打印记录为 Excel（普通用户仅导出本人记录）。
+
+    通过 ``?layout=dual`` 可导出双联表：同一工作表左右各一联。
+    """
     qs, _ = _filter_print_records(request)
-    workbook = build_print_record_workbook(qs)
-    return xlsx_response(workbook, export_filename("标签打印记录"))
+    dual = _is_dual_export(request)
+    workbook = build_print_record_workbook(qs, dual=dual)
+    prefix = "标签打印记录-双联" if dual else "标签打印记录"
+    return xlsx_response(workbook, export_filename(prefix))
 
 
 @login_required
